@@ -8,7 +8,7 @@ import { ScoreDisplay } from './effects/score';
 import { SoundEffects } from './effects/sound';
 import { ClickEffects } from './effects/particles';
 import { icon } from './icons';
-import { playFaviconArrival } from './ui/favicon';
+import { playFaviconArrival, startFaviconLoading } from './ui/favicon';
 import { compassSpinner, playCompassArrival } from './ui/compass-spinner';
 import { saveBest } from './game/records';
 import { MODES } from './game/modes';
@@ -44,7 +44,7 @@ $('#app').innerHTML = `
  <div class="zoom-controls" role="group" aria-label="Map view"><button id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button><button id="reset-view" aria-label="Reset map view" title="Reset map view">${icon('expand', 17)}</button></div>
  <footer class="game-footer"><div class="session-stats" aria-label="Score"><span class="score-star" aria-hidden="true">${icon('star', 18)}</span><strong id="score">0</strong><time id="time" aria-label="Session time">00:00</time><span id="accuracy" class="sr-only">100%</span></div><div class="actions"><button id="hint" class="utility-button" aria-label="Hint" title="Hint · −50 points">${icon('bulb', 17)}</button><button id="skip" class="utility-button" aria-label="Skip" title="Skip">${icon('skip', 17)}</button></div></footer>
  <div id="extra-controls" hidden><button id="sound" class="utility-button" aria-label="Mute sound" title="Mute sound" aria-pressed="true">${icon('sound', 17)}</button><button id="keyboard-answer" class="utility-button" aria-label="Answer using keyboard">${icon('keyboard', 17)}<span>Type answer</span></button><button id="restart" class="utility-button" aria-label="Restart round">${icon('reset', 17)}<span>New round</span></button><button id="help" class="utility-button" aria-label="How to play">${icon('help', 17)}<span>Controls</span></button></div>
- <div class="loading" id="loading" role="status">${compassSpinner(48)}<span>Loading map</span></div>
+ <div class="loading" id="loading" role="status">${compassSpinner(64)}<span>Loading map</span></div>
  <div id="load-error" class="error-panel" hidden></div>
  <section id="results" class="results" aria-label="Round results" hidden></section>
 </main>
@@ -230,6 +230,7 @@ document.addEventListener('keydown', event => { if (mode === 'flags' && !$('#dia
 
 setInterval(() => { if (state && !completedAt && !document.hidden) $('#time').textContent = formatTime(Math.floor((performance.now() - startedAt) / 1000)); }, 1000);
 async function boot(): Promise<void> {
+ const stopFaviconLoading = startFaviconLoading();
  try {
   const response = await fetch(`${import.meta.env.BASE_URL}data/countries.json`); if (!response.ok) throw new Error('The map could not be loaded.');
   const atlas: Atlas = await response.json(); countries = atlas.features.map(f => ({ id: String(f.id), ...f.properties }));
@@ -248,8 +249,10 @@ async function boot(): Promise<void> {
   document.addEventListener('keydown', event => { if (event.key === 'Escape') renderer.cancelGesture(); });
   renderer.onHover = (id, x, y) => { const tip = $('#tooltip'); tip.hidden = !id || transition || mode === 'flags' || state?.status === 'finished' || !state?.answers.some(a => a.targetId === id && a.correct); if (id) { tip.textContent = state?.answers.some(a => a.targetId === id && a.correct) ? countries.find(c => c.id === id)!.name : 'Click to guess'; tip.style.left = `${Math.max(8, Math.min(x + 15, innerWidth - 135))}px`; tip.style.top = `${Math.max(125, y - 36)}px`; } };
   renderer.onContextLost = () => { $('#load-error').hidden = false; $('#load-error').innerHTML = '<h2>Map connection lost</h2><p>Reload to restore the map, or continue with keyboard answers.</p><button class="primary-button" onclick="location.reload()">Reload</button>'; };
+  stopFaviconLoading();
   $('#loading').hidden = true; startGame(); playCompassArrival($('.brand-mark')); void playFaviconArrival();
  } catch (error) {
+  stopFaviconLoading();
   $('#loading').hidden = true; $('#target-name').textContent = 'Map unavailable'; $('#load-error').hidden = false;
   $('#load-error').innerHTML = `<h2>Couldn’t load the map</h2><p>${escape(error instanceof Error ? error.message : 'Please refresh to try again.')}</p><button class="primary-button" id="retry-load">Retry</button>`; $('#retry-load').onclick = () => location.reload();
  }

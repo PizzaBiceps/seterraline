@@ -2,17 +2,24 @@ import favicon from '../assets/seterraline-favicon.svg';
 import { COMPASS_ARRIVAL_MS, compassArrivalAngle } from './compass-motion';
 
 let played = false;
-/** An additional icon link animates briefly; the original static link is never changed. */
-export async function playFaviconArrival(replay = false): Promise<void> {
+/** Repeat the existing turn until the map finishes loading or fails. */
+export function startFaviconLoading(): () => void {
+ const controller = new AbortController();
+ void playFaviconArrival(true, controller.signal);
+ return () => controller.abort();
+}
+
+/** An additional icon link animates; the original static link is never changed. */
+export async function playFaviconArrival(replay = false, loading?: AbortSignal): Promise<void> {
  if (played && !replay) return;
- played = true;
+ if (!loading) played = true;
  const motion = matchMedia('(prefers-reduced-motion: reduce)');
  const original = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
  if (!original || motion.matches || document.hidden) return;
  const started = performance.now();
  try {
   const front = new Image(); front.src = favicon; await front.decode();
-  if (motion.matches || document.hidden || performance.now()-started >= COMPASS_ARRIVAL_MS) return;
+  if (loading?.aborted || motion.matches || document.hidden || (!loading && performance.now()-started >= COMPASS_ARRIVAL_MS)) return;
   const face = document.createElement('canvas'); face.width = face.height = 16;
   const faceCtx = face.getContext('2d');
   const pixel = document.createElement('canvas'); pixel.width = pixel.height = 16;
@@ -32,6 +39,7 @@ export async function playFaviconArrival(replay = false): Promise<void> {
    finished = true; clearTimeout(timer);
    // Also request the original explicitly for browsers that retain a removed icon.
    icon.type = original.type; icon.href = original.href; icon.remove();
+   loading?.removeEventListener('abort', restore);
    motion.removeEventListener('change', restore);
    document.removeEventListener('visibilitychange', onVisibility);
    window.removeEventListener('pagehide', restore);
@@ -39,7 +47,8 @@ export async function playFaviconArrival(replay = false): Promise<void> {
   const onVisibility = () => { if (document.hidden) restore(); };
   const draw = () => {
    try {
-    const progress = Math.min(1,(performance.now()-started)/COMPASS_ARRIVAL_MS);
+    const elapsed = (performance.now()-started)/COMPASS_ARRIVAL_MS;
+    const progress = loading ? elapsed % 1 : Math.min(1, elapsed);
     const radians = compassArrivalAngle(progress)*Math.PI/180;
     const cosine = Math.cos(radians), sine = Math.sin(radians);
     // Keep a one-pixel casing visible when the dial is edge-on.
@@ -58,6 +67,7 @@ export async function playFaviconArrival(replay = false): Promise<void> {
     timer = setTimeout(draw,75);
    } catch { restore(); }
   };
+  loading?.addEventListener('abort',restore, { once: true });
   motion.addEventListener('change',restore);
   document.addEventListener('visibilitychange',onVisibility);
   window.addEventListener('pagehide',restore);
