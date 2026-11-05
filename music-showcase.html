@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Seterraline · Neon flow</title><style>
+@import url('/node_modules/@fontsource/silkscreen/latin-400.css');
+*{box-sizing:border-box}body{margin:0;background:#202b40;color:#ebe1da;font-family:monospace;min-height:100dvh;display:grid;place-items:center;padding:24px}main{width:660px;max-width:100%}h1{font:26px Silkscreen,monospace;color:#f4b3c9;margin:0 0 8px}.eyebrow{color:#89cbd0;font:10px Silkscreen,monospace;letter-spacing:2px;margin-bottom:30px}.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:28px 0 24px}.stage{cursor:pointer;background:#303e55;color:#b6b9d0;min-height:52px;border:0;border-bottom:4px solid #141e31;font:11px Silkscreen,monospace}.stage.active{background:#d3a0c7;color:#252d43;border-color:#8c648c}.stage:focus-visible,a:focus-visible{outline:2px solid #9fe3d7;outline-offset:4px}#phase{font:19px Silkscreen,monospace;color:#a9e5d6;min-height:27px}p{font-size:13px;color:#bdc0d3;line-height:1.7}audio{width:100%;margin:18px 0 22px}a{color:#a9e5d6;font-size:12px}#stage-time{font-size:11px;color:#a0a9c3}.links{display:flex;justify-content:space-between;gap:24px}#description{min-height:44px}button:disabled{opacity:.4;cursor:wait}@media(max-width:420px){h1{font-size:23px}.stage{font-size:9px}}
+.track-label{display:block;color:#a9e5d6;font-size:10px;margin:18px 0 8px}select{font:13px Silkscreen,monospace;color:#ebe1da;background:#303e55;border:2px solid #64728d;border-radius:0;padding:10px;width:100%;margin-bottom:20px;min-height:44px}</style></head><body><main><h1>FLOW MUSIC</h1><label class="track-label" for="soundtrack">SOUNDTRACK</label><select id="soundtrack"><option value="neon-drive">Neon Drive</option><option value="vector-run">Vector Run</option></select><div class="eyebrow">SETERRALINE / MUSIC LAB</div><div id="phase" role="status">Warming up…</div><p id="description">Building your audition.</p><div class="stages" aria-label="Jump to flow level"><button class="stage" disabled aria-label="Play level 1: Ignition">01</button><button class="stage" disabled aria-label="Play level 2: Night drive">02</button><button class="stage" disabled aria-label="Play level 3: Neon skyline">03</button><button class="stage" disabled aria-label="Play level 4: Fast lane">04</button><button class="stage" disabled aria-label="Play level 5: Overdrive">05</button></div><div id="stage-time"></div><audio id="player" controls hidden></audio><div class="links"><a id="download" hidden download="seterraline-neon-flow.wav">Download WAV</a><a href="/">Back to game</a></div></main><script type="module">
+import { renderShowcase } from '/src/effects/music-preview.ts';
+import { SOUNDTRACKS, soundtrackId } from '/src/effects/soundtracks.ts';
+const track=soundtrackId(new URL(location.href).searchParams.get('track'));
+const selector=document.querySelector('#soundtrack');selector.value=track;
+selector.onchange=()=>{const url=new URL(location.href);url.searchParams.set('track',selector.value);location.href=url.href;};
+try {
+  const {wav,stages,peak} = await renderShowcase(track);
+  const blob = new Blob([wav],{type:'audio/wav'}), player = document.querySelector('#player');
+  const url=URL.createObjectURL(blob);player.src=url;player.hidden=false;
+  const link=document.querySelector('#download');link.href=url;link.download=`seterraline-${track}.wav`;link.hidden=false;
+  const phase=document.querySelector('#phase'), buttons=[...document.querySelectorAll('.stage')];
+  function update(){
+    const found=stages.findIndex(s=>player.currentTime<s.end-.02),index=found<0?stages.length-1:found;
+    phase.textContent=stages[index].label;document.querySelector('#description').textContent=stages[index].detail;
+    buttons.forEach((button,i)=>{button.classList.toggle('active',i===index);button.setAttribute('aria-pressed',String(i===index));});
+    document.querySelector('#stage-time').textContent=`FLOW ${index+1} / 5 · ${stages[index].bpm} BPM · STEREO`;
+  }
+  buttons.forEach((button,i)=>{button.disabled=false;button.setAttribute('aria-label',`Play level ${i+1}: ${stages[i].label}`);button.onclick=()=>{player.currentTime=stages[i].start;void player.play().catch(()=>{});update();};});
+  document.title=`Seterraline · ${SOUNDTRACKS[track].title}`;
+  player.ontimeupdate=update;update();
+  if(!Number.isFinite(peak)||peak>=1) console.warn('Music mix needs more headroom',peak);
+} catch(error){document.querySelector('#phase').textContent='Could not render audio';document.querySelector('#description').textContent=String(error);}
+</script></body></html>

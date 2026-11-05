@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Seterraline atlas generator</title></head><body><p id="status">Generating terrain…</p><script type="module">
+import { createTerrain } from './src/map/terrain.ts';
+const response = await fetch('/data/countries.json');
+const canvas = createTerrain(await response.json());
+const link = document.createElement('a'); link.download = 'pixel-terrain.png'; link.href = canvas.toDataURL('image/png'); link.textContent = 'Save pixel-terrain.png'; document.body.append(link, canvas); document.querySelector('#status').textContent = 'Save the generated image into public/data/pixel-terrain.png.';
+</script></body></html>

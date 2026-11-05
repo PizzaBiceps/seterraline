@@ -1,0 +1,23 @@
+.compass-spinner { display: inline-block; width: var(--compass-size); height: var(--compass-size); flex: 0 0 var(--compass-size); vertical-align: middle; }
+.compass-spinner-scale { display: block; width: 32px; height: 32px; transform: scale(var(--compass-scale)); transform-origin: top left; }
+.compass-spinner-rotor { display: block; position: relative; width: 32px; height: 32px; transform-style: preserve-3d; animation: compass-turn 2.4s steps(32, end) infinite; }
+.compass-spinner-face { display: block; position: absolute; inset: 0; }
+.compass-spinner-side { display: block; position: absolute; left: 0; top: 0; height: 6px; transform-origin: 0 0; }
+.compass-spinner svg { display: block; width: 32px; height: 32px; }
+.compass-spinner-face { backface-visibility: hidden; }
+.compass-spinner-front { transform: translateZ(3.1px); }
+.compass-spinner-back { transform: rotateY(180deg) translateZ(3.1px); }
+.compass-spinner.is-paused .compass-spinner-rotor { animation-play-state: paused; }
+@keyframes compass-turn { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+.compass-arrival .compass-spinner-rotor { animation: compass-arrive 2.4s steps(8, end) 1 both; }
+@keyframes compass-arrive {
+ 0% { transform: rotateY(0deg); }
+ 50% { transform: rotateY(270deg); }
+ 75% { transform: rotateY(345deg); }
+ 88% { transform: rotateY(366deg); }
+ 100% { transform: rotateY(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+ .compass-spinner-rotor, .compass-arrival .compass-spinner-rotor { animation: none; }
+ .compass-spinner-side, .compass-spinner-back { display: none; }
+}

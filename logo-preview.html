@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seterraline · Compass</title>
+  <link rel="icon" type="image/svg+xml" href="/src/assets/seterraline-favicon.svg" />
+  <style>
+    @font-face { font-family: Silkscreen; src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2'); }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 48px; color: #faf3df; background: #203e45; font: 14px/1.6 ui-monospace, monospace; }
+    main { max-width: 960px; margin: auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .identity { display: flex; align-items: center; gap: 11px; font: 16px Silkscreen, monospace; color: #e7e7d4; }
+    img { display: block; image-rendering: pixelated; }
+    a { color: #d2c38a; text-decoration: none; }
+    .specimen { margin-top: 48px; padding: 48px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 40px; background: #17333c; border: 1px solid #47616a; }
+    .comparison { display: flex; justify-content: center; align-items: center; gap: 24px; }
+    .comparison figcaption { text-transform: uppercase; letter-spacing: 2px; }
+    h1 { font: 24px/1.4 Silkscreen, monospace; margin: 8px 0 20px; }
+    p { color: #a8bdb6; max-width: 320px; }
+    .eyebrow { color: #d2c38a; font-size: 10px; letter-spacing: 2px; }
+    .sizes { display: flex; align-items: flex-end; gap: 40px; margin-top: 40px; }
+    figure { margin: 0; display: grid; justify-items: center; gap: 16px; }
+    figcaption { color: #a8bdb6; font-size: 10px; }
+    footer { margin-top: 24px; color: #a8bdb6; font-size: 11px; }
+    @media (max-width: 700px) { body { padding: 24px; } .specimen { grid-template-columns: 1fr; gap: 32px; padding: 24px; margin-top: 32px; } header { align-items: flex-start; } .identity { font-size: 12px; } }
+    @media (max-width: 420px) { .comparison { gap: 16px; } .comparison img { width: 96px; height: 96px; } .sizes { gap: 24px; } }
+    button { color: #faf3df; background: #674128; border: 1px solid #a77546; padding: 10px 14px; font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #f2dfb7; outline-offset: 3px; }
+    .turn-control { display: flex; align-items: center; gap: 12px; margin-top: 18px; color: #a8bdb6; font-size: 11px; }
+    .turn-control input { width: 130px; accent-color: #a77546; }
+    button:disabled { opacity: .5; cursor: default; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="identity"><img src="/src/assets/seterraline-compass.svg" width="32" height="32" alt="" />SETERRALINE</div>
+      <a href="/">Open the atlas ↗</a>
+    </header>
+    <section class="specimen" aria-label="Compass logo preview">
+      <div class="comparison"><figure><span data-compass-size="160"></span><figcaption>Full rotation</figcaption></figure></div>
+      <div>
+        <span class="eyebrow">THE SETERRALINE COMPASS</span>
+        <h1>Always exploring.</h1>
+        <p>The approved compass makes a full turn around its vertical axis, with a solid brown edge and an engraved back. A 2.4-second loop with a stepped pixel-art cadence.</p>
+        <button id="toggle-animation" type="button" aria-pressed="false">Pause rotation</button><label class="turn-control" for="turn-angle">Inspect a turn <input id="turn-angle" type="range" min="0" max="360" step="11.25" value="0" /></label><p id="motion-note" hidden>Rotation is off because reduced motion is enabled.</p>
+        <div class="sizes" aria-label="Loading animation at small sizes">
+          <figure><span data-compass-size="32"></span><figcaption>32 px</figcaption></figure>
+          <figure><span data-compass-size="48"></span><figcaption>48 px loader</figcaption></figure>
+          <figure><img src="/src/assets/seterraline-compass.svg" width="32" height="32" alt="Approved static compass" /><figcaption>Static logo</figcaption></figure>
+        </div>
+      </div>
+    </section>
+    <footer>Animated loading compass · Static game identity and favicon</footer>
+  </main>
+  <script type="module" src="/src/ui/compass-preview.ts"></script>
+</body>
+</html>

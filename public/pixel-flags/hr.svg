@@ -1,0 +1,21 @@
+<svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="16" height="4" fill="#A71B14"/>
+<rect y="4" width="16" height="4" fill="#F5F8FB"/>
+<rect y="8" width="16" height="4" fill="#2E4E9D"/>
+<path d="M7 4H8V5H7V4Z" fill="#A71B14"/>
+<path d="M7 6H8V7H7V6Z" fill="#A71B14"/>
+<path d="M7 8H8V9H7V8Z" fill="#A71B14"/>
+<path d="M8 5H9V6H8V5Z" fill="#A71B14"/>
+<path d="M8 7H9V8H8V7Z" fill="#A71B14"/>
+<path d="M5 4H6V5H5V4Z" fill="#A71B14"/>
+<path d="M6 5H7V6H6V5Z" fill="#A71B14"/>
+<path d="M6 7H7V8H6V7Z" fill="#A71B14"/>
+<path d="M5 6H6V7H5V6Z" fill="#A71B14"/>
+<path d="M9 4H10V5H9V4Z" fill="#A71B14"/>
+<path d="M9 6H10V7H9V6Z" fill="#A71B14"/>
+<rect x="5" y="3" width="1" height="1" fill="#8ED5E9"/>
+<rect x="6" y="3" width="1" height="1" fill="#2E4E9D"/>
+<rect x="7" y="3" width="1" height="1" fill="#8ED5E9"/>
+<rect x="8" y="3" width="1" height="1" fill="#2E4E9D"/>
+<rect x="9" y="3" width="1" height="1" fill="#8ED5E9"/>
+</svg>

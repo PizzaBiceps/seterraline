@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Seterraline · Flag study</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#243e48;color:#d8e0cb;font:13px ui-monospace,monospace}main{max-width:1020px;margin:auto;padding:30px 24px 60px}h1,h2,h3,.labels{font-family:'Silkscreen',monospace;font-weight:400}h1{font-size:22px;color:#ebdda3;margin:0 0 14px}h2{font-size:16px;margin:35px 0 12px}p{line-height:1.6;color:#acbdb5;max-width:730px;margin:8px 0 18px}a{color:#e4d69d}header a{float:right;font-size:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.country{border:2px solid #526961;background:#1d3540;padding:16px;box-shadow:3px 3px #152e37}h3{font-size:12px;color:#e2d9b0;margin:0 0 18px}.flags,.labels{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center}.flags{align-items:center;min-height:96px}.flags img{width:128px;height:96px;object-fit:contain;image-rendering:pixelated;max-width:100%;margin:auto;filter:drop-shadow(3px 3px #122b34)}.labels{font-size:8px;color:#a5b9aa;margin-top:16px;line-height:1.6}.promo{display:block;width:100%;height:auto;image-rendering:pixelated;background:#1d3540;border:2px solid #526961}.note{font-size:12px}footer{margin-top:26px;border-top:2px solid #526961;padding-top:18px}@media(max-width:680px){.grid{grid-template-columns:1fr}.country{padding:14px 18px}.flags{min-height:96px}main{padding:24px 20px}h1{font-size:18px}header a{float:none;display:block;margin-bottom:18px}}
+</style></head><body><main><header><a href="/">← Back to game</a><h1>FLAG STUDY</h1><p>Original detailed vectors versus hand-drawn 16×12 flags, at the same display size. Compare the emblems as well as the overall style.</p></header><div class="grid" id="comparisons"></div>
+<h2>REFF PIXELS · 48×32 OPTION</h2><p>A larger pixel grid with stylized, exaggerated symbols. This is the creator’s public preview; the individual flags are in the paid pack.</p>
+<a href="https://reffpixels.itch.io/flag-assets-pixelart" target="_blank" rel="noreferrer"><img class="promo" src="https://img.itch.zone/aW1nLzEwMzMwMzIyLnBuZw==/original/C4aNfl.png" alt="Reff Pixels official flag pack preview"></a>
+<footer><p class="note">Sources: <a href="https://github.com/tgines/pixel-flags" target="_blank" rel="noreferrer">tgines / pixel-flags</a> (MIT, 16×12 SVG) · <a href="https://reffpixels.itch.io/flag-assets-pixelart" target="_blank" rel="noreferrer">Reff Pixels</a> (paid pack, includes 48×32). The game now uses the pixel-flags set.</p></footer></main>
+<script type="module">
+import '@fontsource/silkscreen/latin-400.css';
+
+const flags=[['hr','Croatia','croatia'],['mx','Mexico','mexico'],['bt','Bhutan','bhutan'],['br','Brazil','brazil'],['us','United States','united-states'],['jp','Japan','japan']];
+const grid=document.querySelector('#comparisons');
+for(const [iso,name,slug] of flags){
+ const card=document.createElement('article');card.className='country';
+ card.innerHTML=`<h3>${name}</h3><div class="flags"><img class="current" alt="${name}, original detailed flag" width="128" height="96"><img src="/pixel-flags/${iso}.svg" alt="${name}, tgines pixel flag" width="128" height="96"></div><div class="labels"><span>ORIGINAL · DETAILED SVG</span><span>PIXEL-FLAGS · 16×12</span></div>`;
+ grid.append(card);card.querySelector('.current').src=`/flags/${iso}.svg`;
+}
+</script></body></html>

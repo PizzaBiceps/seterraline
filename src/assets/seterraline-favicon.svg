@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" shape-rendering="crispEdges">
+  <!-- Dedicated 16-pixel silhouette; no miniature dial ticks or spindle. -->
+  <path fill="#241b16" d="M6 0h6v1h2v2h1v2h1v6h-1v3h-2v2H6v-1H3v-2H1V5h1V3h2V1h2z"/>
+  <path fill="#674128" d="M4 3h3v11H5v-1H3V5h1z"/>
+  <path fill="#805333" d="M7 1h5v1h2v3h1v6h-1v3h-2v1H7v-1H5v-2H4V5h1V3h2z"/>
+  <path fill="#b18450" d="M7 1h5v1H8v1H6v3H5v5H4V5h1V3h2z"/>
+  <path fill="#30251d" d="M8 3h4v1h1v2h1v5h-1v2h-2v1H7v-1H6v-2H5V6h1V4h2z"/>
+  <path fill="#504634" d="M8 4h4v2h1v5h-1v2H7v-2H6V6h2z"/>
+  <path fill="#fff4dc" d="M8 7h2v2h1v1H9v1H8v1H6v-2h1V8h1z"/>
+  <path fill="#b6ac94" d="M9 9h2v1H9v1H8v1H6v-1h1v-1h2z"/>
+  <path fill="#e35b45" d="M12 4h1v3h-1v2h-2V8H8V7h1V6h2V5h1z"/>
+  <path fill="#ad302c" d="M12 6h1v1h-1v2h-2V8h1V7h1z"/>
+</svg>
