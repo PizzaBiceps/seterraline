@@ -31,6 +31,7 @@ const RAW_RUNTIME_STATE =
           ["@fontsource/silkscreen", "npm:5.3.0"],\
           ["@types/d3-geo", "npm:3.1.1"],\
           ["@types/earcut", "npm:3.0.0"],\
+          ["@types/geojson", "npm:7946.0.16"],\
           ["@types/node", "npm:24.19.2"],\
           ["d3-geo", "npm:3.1.2"],\
           ["earcut", "npm:3.2.4"],\
@@ -906,6 +907,7 @@ const RAW_RUNTIME_STATE =
           ["@fontsource/silkscreen", "npm:5.3.0"],\
           ["@types/d3-geo", "npm:3.1.1"],\
           ["@types/earcut", "npm:3.0.0"],\
+          ["@types/geojson", "npm:7946.0.16"],\
           ["@types/node", "npm:24.19.2"],\
           ["d3-geo", "npm:3.1.2"],\
           ["earcut", "npm:3.2.4"],\
