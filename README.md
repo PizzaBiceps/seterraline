@@ -22,6 +22,18 @@ npm run data     # Regenerate bundled country geometry and flags
 
 Deploy `dist/` on any static host with HTTPS and compression enabled. All game assets, including the pixel font, are bundled locally. The header compass and favicon make one 2.4-second turn when the map loads. Clicking the brand (or activating it with the keyboard) replays the turn without navigating or resetting the match; the favicon keeps its original static SVG link as a fallback, restores it afterward, and skips animation for reduced motion or a hidden tab. No external font, audio, analytics, or map service is used.
 
+## Share with GitHub Pages
+
+The game is published under the alias **PizzaBiceps** at https://pizzabiceps.github.io/seterraline/ once deployment is enabled.
+
+1. In the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. Push the game files and `.github/workflows/pages.yml` to `main`.
+3. Wait for **Deploy game to GitHub Pages** to finish in the Actions tab.
+
+Future pushes to `main` test, build, and deploy the game automatically. Only `dist/` is uploaded to Pages. Vite's base path and runtime asset URLs support the `/seterraline/` project URL.
+
+Use the alias and GitHub noreply email for commit authorship. Keep the GitHub profile, avatar, bio, and linked accounts consistent with that alias if you want visitors to see only that identity. Third-party asset license credits remain included.
+
 ## Controls and rules
 
 - Click or tap countries; drag to pan; pinch, scroll, or use the buttons to zoom. Pinching never submits an answer, even when one finger lifts before the other. Touch taps tolerate small finger movement; deliberate drags begin without a camera jump.

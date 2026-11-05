@@ -121,7 +121,7 @@ function update(): void {
 function renderFlag(): void {
  const country = target(), options = flagOptions(country, eligible(countries, region), state.config.seed + state.index);
  $('#target-name').textContent = '';
- $('#flag-board').innerHTML = `<img class="quiz-flag" src="/flags/${country.iso}.svg" alt="Flag to identify" width="240" height="180"/><div class="flag-options">${options.map((c, i) => `<button data-answer="${c.id}"><kbd>${i + 1}</kbd>${escape(c.name)}</button>`).join('')}</div>`;
+ $('#flag-board').innerHTML = `<img class="quiz-flag" src="${import.meta.env.BASE_URL}flags/${country.iso}.svg" alt="Flag to identify" width="240" height="180"/><div class="flag-options">${options.map((c, i) => `<button data-answer="${c.id}"><kbd>${i + 1}</kbd>${escape(c.name)}</button>`).join('')}</div>`;
  setPixelFlag($<HTMLImageElement>('.quiz-flag'), country.iso);
  document.querySelectorAll<HTMLButtonElement>('[data-answer]').forEach(b => { b.onclick = () => guess(b.dataset.answer!); });
 }
@@ -231,9 +231,9 @@ document.addEventListener('keydown', event => { if (mode === 'flags' && !$('#dia
 setInterval(() => { if (state && !completedAt && !document.hidden) $('#time').textContent = formatTime(Math.floor((performance.now() - startedAt) / 1000)); }, 1000);
 async function boot(): Promise<void> {
  try {
-  const response = await fetch('/data/countries.json'); if (!response.ok) throw new Error('The map could not be loaded.');
+  const response = await fetch(`${import.meta.env.BASE_URL}data/countries.json`); if (!response.ok) throw new Error('The map could not be loaded.');
   const atlas: Atlas = await response.json(); countries = atlas.features.map(f => ({ id: String(f.id), ...f.properties }));
-  const terrain = new Image(); terrain.src = '/data/pixel-terrain.png'; await terrain.decode();
+  const terrain = new Image(); terrain.src = `${import.meta.env.BASE_URL}data/pixel-terrain.png`; await terrain.decode();
   renderer = new AtlasRenderer($<HTMLCanvasElement>('#map'), atlas, terrain); renderer.onPick = guess;
   renderer.onCountryTap = () => { if (state?.status === 'playing' && !transition) sounds.play('map-click'); };
   monsters = new SeaMonsters($('.map-stage'), renderer, (kind, x, y) => {

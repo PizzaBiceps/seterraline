@@ -3,7 +3,7 @@ export function setPixelFlag(image: HTMLImageElement, iso: string): void {
  image.dataset.flag = iso;
  image.onerror = () => {
   image.onerror = null;
-  image.src = `/flags/${iso}.svg`;
+  image.src = `${import.meta.env.BASE_URL}flags/${iso}.svg`;
  };
- image.src = `/pixel-flags/${iso}.svg`;
+ image.src = `${import.meta.env.BASE_URL}pixel-flags/${iso}.svg`;
 }
