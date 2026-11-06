@@ -2,11 +2,11 @@ type Ember = { x:number;y:number;vx:number;vy:number;age:number;life:number;heig
 /** Low-resolution randomized flames and smoke anchored outside the results dialog. */
 export class PodiumFlames {
  private canvas=document.createElement('canvas');private ctx:CanvasRenderingContext2D|null;private frame=0;private target?:HTMLElement;private place=1;
- constructor(parent:HTMLElement){this.canvas.className='podium-fire';this.canvas.setAttribute('aria-hidden','true');parent.append(this.canvas);this.ctx=this.canvas.getContext('2d');document.addEventListener('visibilitychange',()=>{if(document.hidden){const target=this.target,place=this.place;this.stop();this.target=target;this.place=place;}else if(this.target&&!this.target.hidden)this.play(this.target,this.place);});}
- stop():void{this.target=undefined;cancelAnimationFrame(this.frame);this.frame=0;this.ctx?.clearRect(0,0,this.canvas.width,this.canvas.height);}
+ constructor(parent:HTMLElement,private onActive:(active:boolean)=>void=()=>{}){this.canvas.className='podium-fire';this.canvas.setAttribute('aria-hidden','true');parent.append(this.canvas);this.ctx=this.canvas.getContext('2d');document.addEventListener('visibilitychange',()=>{if(document.hidden){const target=this.target,place=this.place;this.stop();this.target=target;this.place=place;}else if(this.target&&!this.target.hidden)this.play(this.target,this.place);});}
+ stop():void{this.onActive(false);this.target=undefined;cancelAnimationFrame(this.frame);this.frame=0;this.ctx?.clearRect(0,0,this.canvas.width,this.canvas.height);}
  play(target:HTMLElement,place:number):void{
   this.stop();if(!this.ctx||document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  this.target=target;this.place=place;
+  this.target=target;this.place=place;this.onActive(true);
   const silver=place===2,palette=silver?['#4b709c','#8bd1f1','#edfaff']:['#bd472b','#ff9e39','#ffe9a2'];
   this.canvas.width=Math.ceil(innerWidth/2);this.canvas.height=Math.ceil(innerHeight/2);
   const particles:Ember[]=[];let previous=performance.now();

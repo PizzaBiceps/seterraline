@@ -12,5 +12,8 @@ export function composeHardstyleBar(track: SoundtrackId, seed: number, bar: numb
   notes.push({ instrument: 'open-hat', step, midi: 0, length: .7, velocity: .055 });
  }
  for (const step of [4,12]) notes.push({ instrument: 'snare', step, midi: 0, length: 1.1, velocity: .16 });
+ const chord=original.filter(n=>n.instrument==='pad').map(n=>n.midi).slice(0,3);
+ for(const step of [2,6,10,14])chord.forEach((midi,i)=>notes.push({instrument:'chord',step,midi:midi+12,length:1.4,velocity:.042,pan:(i-1)*.5}));
+ for(let i=0;i<8;i++)notes.push({instrument:'arp',step:i*2+1,midi:Math.min(96,(chord[i%chord.length]||root+24)+12),length:.65,velocity:.045,pan:i%2?.7:-.7});
  return notes;
 }

@@ -4,6 +4,7 @@ import { avatarPicker, avatarSvg } from './ui/avatar-picker';
 import { dunceCap, showDunceSlots } from './ui/dunce-slots';
 import { finishMedal } from './ui/finish-medal';
 import { setPixelFlag } from './ui/pixel-flag';
+import { FireCrackle } from './effects/fire-crackle';
 import { PodiumFlames } from './effects/podium-flames';
 import { StreakHeat } from './effects/streak';
 import { ImpactEffects } from './effects/impact';
@@ -43,15 +44,15 @@ $('#app').innerHTML = `
  </div>
  <header class="toolbar">
   <button class="identity" type="button" aria-label="Spin compass" title="Spin compass"><span class="brand-mark" aria-hidden="true">${icon('compass', 32)}</span><strong>SETERRALINE</strong></button>
-  <div class="header-actions"><button id="party" class="utility-button" title="Play with friends">${icon('party',20)}<span>PARTY</span></button><button id="settings" class="square-button" aria-label="Game settings" title="Game settings">${icon('menu', 18)}<span id="quiz-name" class="sr-only">World · Countries</span></button></div>
+  <div class="header-actions"><button id="party" class="utility-button" title="Play with friends">${icon('party',20)}<span>PARTY</span></button><button id="settings" class="square-button" aria-label="Game menu" title="Game menu">${icon('menu', 18)}<span class="corner-label">MENU</span><span id="quiz-name" class="sr-only">World · Countries</span></button></div>
  </header>
  <section class="question" aria-label="Current question"><span id="prompt-label" class="sr-only">LOCATE</span><img id="target-flag" class="target-flag" alt="Flag to locate on the map" width="120" height="80" hidden><h1 id="target-name" aria-live="polite">Loading map</h1><span id="round-number" class="round-number">— / —</span><div class="progress-track"><div id="progress"></div></div></section>
  <aside id="party-activity" class="party-activity" aria-label="Live player activity" hidden></aside>
  <div id="egg-message" class="sr-only" role="status" aria-live="polite"></div>
  <div id="flag-board" class="flag-board" hidden></div>
  <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
- <div class="zoom-controls" role="group" aria-label="Map view"><button id="zoom-in" aria-label="Zoom in" title="Zoom in">${icon('zoom-in',24)}</button><button id="zoom-out" aria-label="Zoom out" title="Zoom out">${icon('zoom-out',24)}</button><button id="reset-view" aria-label="Reset map view" title="Reset map view">${icon('expand', 17)}</button></div>
- <footer class="game-footer"><div class="session-stats" aria-label="Score"><div class="hud-score"><span class="score-star" aria-hidden="true">${icon('coin',28)}</span><div class="hud-readout"><span class="hud-label">POINTS</span><strong id="score">0</strong></div></div><div class="hud-clock">${icon('hourglass',20)}<div class="hud-readout"><span class="hud-label">TIME</span><time id="time" aria-label="Session time">00:00</time></div></div><span id="accuracy" class="sr-only">100%</span></div><div class="actions"><button id="hint" class="utility-button" aria-label="Hint" title="Hint · −50 points">${icon('bulb', 17)}</button><button id="skip" class="utility-button" aria-label="Skip" title="Skip">${icon('skip', 17)}</button></div></footer>
+ <div class="zoom-controls" role="group" aria-label="Map view"><button id="zoom-in" aria-label="Zoom in" title="Zoom in">${icon('zoom-in',24)}</button><button id="zoom-out" aria-label="Zoom out" title="Zoom out">${icon('zoom-out',24)}</button><button id="reset-view" aria-label="Reset map view" title="Reset map view">${icon('reset-view', 23)}<span>RESET</span></button></div>
+ <footer class="game-footer"><div class="session-stats" aria-label="Score"><div class="hud-score"><span class="score-star" aria-hidden="true">${icon('score-map',28)}</span><div class="hud-readout"><span class="hud-label">POINTS</span><strong id="score">0</strong></div></div><div class="hud-clock">${icon('hourglass',20)}<div class="hud-readout"><span class="hud-label">TIME</span><time id="time" aria-label="Session time">00:00</time></div></div><span id="accuracy" class="sr-only">100%</span></div><div class="actions"><button id="hint" class="utility-button" aria-label="Hint" title="Hint · −50 points">${icon('bulb', 17)}<span>HINT</span></button><button id="skip" class="utility-button" aria-label="Skip" title="Skip">${icon('skip', 17)}<span>SKIP</span></button></div></footer>
  <div id="extra-controls" hidden><button id="sound" class="utility-button" aria-label="Mute sound" title="Mute sound" aria-pressed="true">${icon('sound', 17)}</button><button id="keyboard-answer" class="utility-button" aria-label="Answer using keyboard">${icon('keyboard', 17)}<span>Type answer</span></button><button id="restart" class="utility-button" aria-label="Restart round">${icon('reset', 17)}<span>New round</span></button><button id="help" class="utility-button" aria-label="How to play">${icon('help', 17)}<span>Controls</span></button></div>
  <div class="loading" id="loading" role="status">${compassSpinner(64)}<span>Loading map</span></div>
  <div id="load-error" class="error-panel" hidden></div>
@@ -69,11 +70,12 @@ const music = new FlowMusic(() => sounds.audioContext);
 music.setMuted(!sounds.enabled);
 const impacts = new ImpactEffects($('.game'));
 const effects = new ClickEffects($('.game'));
-const podiumFlames = new PodiumFlames($('.game'));
+const fireAudio = new FireCrackle(()=>sounds.audioContext,()=>sounds.enabled);
+const podiumFlames = new PodiumFlames($('.game'),active=>fireAudio.setActive(active));
 let pointerStart = { x: 0, y: 0 }, lastPointer = { x: innerWidth / 2, y: innerHeight / 2, at: 0 };
 function effectOrigin(): { x: number; y: number } { return performance.now() - lastPointer.at < 350 ? lastPointer : { x: innerWidth / 2, y: innerHeight / 2 }; }
-document.addEventListener('pointerdown', event => { pointerStart = { x: event.clientX, y: event.clientY }; sounds.unlock(); music.unlock(); }, { capture: true });
-document.addEventListener('keydown', () => { sounds.unlock(); music.unlock(); }, { capture: true });
+document.addEventListener('pointerdown', event => { pointerStart = { x: event.clientX, y: event.clientY }; sounds.unlock(); music.unlock(); fireAudio.sync(); }, { capture: true });
+document.addEventListener('keydown', () => { sounds.unlock(); music.unlock(); fireAudio.sync(); }, { capture: true });
 document.addEventListener('pointerup', event => {
  if (!event.isPrimary || renderer?.isTouchNavigation) return;
  if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > (event.pointerType === 'touch' ? 12 : 6)) return;
@@ -81,7 +83,7 @@ document.addEventListener('pointerup', event => {
  if (event.target === $('#map')) { effects.burst(event.clientX, event.clientY, 'click'); impacts.ring(event.clientX, event.clientY, 'click'); }
 }, { capture: true });
 function syncSoundButton(): void { const button = $('#sound'); button.innerHTML = icon(sounds.enabled ? 'sound' : 'muted', 17) + `<span>Sound ${sounds.enabled ? 'on' : 'off'}</span>`; button.setAttribute('aria-label', sounds.enabled ? 'Mute sound' : 'Enable sound'); button.setAttribute('title', sounds.enabled ? 'Mute sound' : 'Enable sound'); button.setAttribute('aria-pressed', String(sounds.enabled)); }
-$('#sound').onclick = () => { sounds.toggle(); music.setMuted(!sounds.enabled); syncSoundButton(); if (sounds.enabled) sounds.play('hint'); };
+$('#sound').onclick = () => { sounds.toggle(); fireAudio.sync(); music.setMuted(!sounds.enabled); syncSoundButton(); if (sounds.enabled) sounds.play('hint'); };
 syncSoundButton();
 
 function openDialog(content: string): void { partyDialog = false; for (const control of menuControls) $('#extra-controls').append(control); $('#dialog-body').innerHTML = content; $<HTMLDialogElement>('#dialog').showModal(); }
@@ -203,18 +205,14 @@ $('#skip').onclick = async () => {
 function animatePodium(place = 1): void {
  resultEntrance?.cancel(); const panel=$('#results'); panel.getAnimations().forEach(animation=>animation.cancel());
  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { resultEntrance=panel.animate([{opacity:0},{opacity:1}],{duration:160});return; }
- const shake=place===2?12:26;
- const pose=(x:number,y:number,scale:number,rotate=0)=>`translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale}) rotate(${rotate}deg)`;
- resultEntrance=panel.animate([
-  {transform:pose(0,28,.83)},
-  {transform:pose(-shake,-5,1.055,-1.2),offset:.22},
-  {transform:pose(shake,3,1.035,1),offset:.34},
-  {transform:pose(-shake*.7,-2,1.02,-.6),offset:.48},
-  {transform:pose(shake*.5,1,1.01,.4),offset:.61},
-  {transform:pose(-shake*.25,0,1,-.2),offset:.75},
-  {transform:pose(shake*.1,0,1),offset:.87},
-  {transform:pose(0,0,1)}
- ],{duration:920,easing:'steps(3)'});
+ const strength=place===2?12:22;
+ const pose=(x:number,y:number,scale:number)=>`translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+ const frames:Keyframe[]=[{transform:pose(0,100,.74),offset:0},{transform:pose(0,-9,1.065),offset:.18},{transform:pose(0,0,1),offset:.24}];
+ for(let i=0;i<23;i++){
+  const decay=(1-i/23)**1.3,x=Math.round((i%2?1:-1)*strength*decay),y=Math.round(Math.sin(i*2.3)*strength*.35*decay);
+  frames.push({transform:pose(x,y,1),offset:.25+i/23*.7,easing:'steps(1)'});
+ }
+ frames.push({transform:pose(0,0,1),offset:1});resultEntrance=panel.animate(frames,{duration:1100,easing:'linear'});
 }
 function finish(): void {
  streakHeat.set(0);

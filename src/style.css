@@ -534,3 +534,9 @@ body { -webkit-text-size-adjust: 100%; }
 .session-stats strong { font-size: 22px; line-height: 1; color: #f2dda3; text-shadow: 2px 2px #122c32; }
 .session-stats time { font-size: 13px; color: #c2d5bb; line-height: 1; letter-spacing: 1px; }
 @media (max-width: 480px) { .session-stats { padding: 5px 6px; } .hud-score { padding-right: 7px; } .hud-clock { padding-left: 7px; gap: 4px; } .hud-score .score-star svg { width: 24px; height: 24px; } .session-stats strong { font-size: 18px; } .session-stats time { font-size: 11px; } }
+.actions .utility-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 56px; min-height: 56px; padding: 6px 8px; }
+.actions .utility-button>span { font-size: 7px; letter-spacing: .5px; line-height: 1; }
+#reset-view { display: flex; flex-direction: column; align-items: center; gap: 2px; height: 44px; padding: 3px 0; }
+#reset-view>span { font-size: 5px; line-height: 1; letter-spacing: 0; }
+#settings { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+#settings>.corner-label { font-size: 5px; line-height: 1; }
