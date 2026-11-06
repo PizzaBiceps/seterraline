@@ -1,3 +1,4 @@
+import { composeHardstyleBar, VICTORY_STEP_SECONDS } from './hardstyle';
 import { SOUNDTRACKS, randomSoundtrack, type SoundtrackId } from './soundtracks';
 import { createMusicNoise, synthesizeNote, type MusicVoice } from './synth';
 import { createMusicMix, MUSIC_GAIN, type MusicMix } from './music-mix';
@@ -15,6 +16,7 @@ export class FlowMusic {
   private playing = false;
   private muted = false;
   private energy = 0;
+  private victory = false;
   private level = 0;
   private seed = 0;
   private bar = 0;
@@ -44,8 +46,12 @@ export class FlowMusic {
   unlock(): void { this.sync(); }
 
   reset(seed: number): void {
-    this.stop(); this.soundtrack = randomSoundtrack(); this.seed = seed; this.energy = 0; this.level = 0; this.bar = 0; this.step = 0;
+    this.victory = false; this.stop(); this.soundtrack = randomSoundtrack(); this.seed = seed; this.energy = 0; this.level = 0; this.bar = 0; this.step = 0;
     this.lastAnswer = this.lastDecay = performance.now(); this.sync();
+  }
+
+  playVictory(): void {
+    this.stop(); this.victory = true; this.playing = true; this.bar = 0; this.step = 0; this.sync();
   }
 
   react(event: FlowEvent): void {
@@ -84,9 +90,11 @@ export class FlowMusic {
     if (now - this.lastAnswer > 18000 && now - this.lastDecay > 8000) { this.energy = Math.max(0, this.energy - 1); this.lastDecay = now; }
     if (this.nextTime < ctx.currentTime - .1) { this.nextTime = ctx.currentTime + .03; this.step = 0; }
     while (this.nextTime < ctx.currentTime + .18) {
-      if (this.step === 0) { this.level = musicLevel(this.energy); this.phrase = SOUNDTRACKS[this.soundtrack].compose(this.seed, this.bar, this.level); }
-      for (const note of this.phrase) if (note.step === this.step) this.note(note, this.nextTime, STEP_SECONDS);
-      this.nextTime += STEP_SECONDS;
+      if (this.victory && this.bar >= 16) { this.victory = false; this.playing = false; this.stop(); return; }
+      const stepSeconds = this.victory ? VICTORY_STEP_SECONDS : STEP_SECONDS;
+      if (this.step === 0) { this.level = musicLevel(this.energy); this.phrase = this.victory ? composeHardstyleBar(this.soundtrack, this.seed, this.bar) : SOUNDTRACKS[this.soundtrack].compose(this.seed, this.bar, this.level); }
+      for (const note of this.phrase) if (note.step === this.step) this.note(note, this.nextTime, stepSeconds);
+      this.nextTime += stepSeconds;
       this.step = (this.step + 1) % 16;
       if (!this.step) this.bar++;
     }

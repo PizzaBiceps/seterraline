@@ -21,6 +21,8 @@ export class AtlasRenderer {
   private terrainTexture: WebGLTexture;
   private backgroundBuffer: WebGLBuffer;
   private showBorders = true;
+  private smolderUntil = 0;
+  private smolderTimer?: ReturnType<typeof setInterval>;
   private pixelSize = 1;
   private terrainCanvas: HTMLImageElement;
   private markerBuffer: WebGLBuffer;
@@ -67,11 +69,18 @@ export class AtlasRenderer {
     const frag = shader(gl.FRAGMENT_SHADER, `
       precision mediump float;
       varying vec3 v_color; varying vec2 v_world;
-      uniform float u_layer; uniform sampler2D u_terrain;
+      uniform float u_smolder; uniform float u_fireTime; uniform float u_layer; uniform sampler2D u_terrain;
       void main(){
         if(u_layer<0.5){gl_FragColor=texture2D(u_terrain,(v_world+vec2(540.,288.))/vec2(1080.,576.));}
         else if(u_layer<1.5){if(max(max(v_color.r,v_color.g),v_color.b)<0.01) discard; gl_FragColor=vec4(v_color,.62);}
-        else if(u_layer<2.5){gl_FragColor=vec4(v_color,.48);}
+        else if(u_layer<2.5){
+          if(u_smolder>.5){
+            float heat=.5+.5*sin(v_world.x*.6+v_world.y*.8+u_fireTime*2.);
+            float sparks=pow(max(0.,sin(v_world.x*3.+v_world.y*2.-u_fireTime*3.)),12.);
+            vec3 ember=mix(vec3(.75,.12,.025),vec3(1.,.66,.12),heat);
+            gl_FragColor=vec4(mix(ember,vec3(1.,.94,.58),sparks),.72+heat*.25);
+          } else gl_FragColor=vec4(v_color,.48);
+        }
         else {
           float edge=abs(gl_PointCoord.x-.5)+abs(gl_PointCoord.y-.5);
           if(edge>.5)discard;
@@ -213,6 +222,16 @@ export class AtlasRenderer {
   }
   zoomBy(factor: number): void { this.zoomAt(factor, this.width / 2, this.height / 2); }
   focus(region: Region): void { this.cancelGesture(); const views: Record<Region, [number, number, number]> = { World: [0, 5, 1], Europe: [17, 53, 4.1], Asia: [92, 33, 1.9], Africa: [19, 1, 2.25], Americas: [-84, 9, 1.5], Oceania: [143, -22, 2.6] }; const [lon, lat, zoom] = views[region]; this.center = this.projection([lon, lat])!; this.zoom = zoom; this.invalidate(); }
+  smolderBorders(duration = 12800): void {
+    clearInterval(this.smolderTimer); this.smolderUntil = duration > 0 ? performance.now() + duration : 0; this.invalidate();
+    if (duration <= 0) return;
+    this.smolderTimer = setInterval(() => {
+      if (document.hidden || performance.now() >= this.smolderUntil) {
+        clearInterval(this.smolderTimer); this.smolderUntil = 0;
+      }
+      this.invalidate();
+    }, 100);
+  }
   setState(active: Set<string>, solved: Set<string>, flash: { id: string; kind: 'wrong' | 'hint' } | null = null): void { this.active = active; this.solved = solved; this.flash = flash; this.paint(); }
   private colorFor(id: string): number[] {
     let color = COLORS.base;
@@ -256,7 +275,10 @@ export class AtlasRenderer {
   private draw(): void {
     const key = `${this.width}:${this.height}:${this.zoom}:${this.center[0]}:${this.center[1]}`;
     if (key !== this.viewKey) { this.viewKey = key; this.onViewChange(); }
+    const smolder = performance.now() < this.smolderUntil && !document.hidden;
     const gl = this.gl; gl.viewport(0,0,this.canvas.width,this.canvas.height); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(this.program);
+    gl.uniform1f(gl.getUniformLocation(this.program,'u_smolder'),smolder ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(this.program,'u_fireTime'),matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : performance.now()/1000);
     gl.uniform2f(gl.getUniformLocation(this.program,'u_center'),this.center[0],this.center[1]); gl.uniform2f(gl.getUniformLocation(this.program,'u_half'),this.width/2,this.height/2);
     gl.uniform1f(gl.getUniformLocation(this.program,'u_scale'),this.scale()); gl.uniform1i(gl.getUniformLocation(this.program,'u_terrain'),0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.terrainTexture);
     const pos=gl.getAttribLocation(this.program,'a_position'),col=gl.getAttribLocation(this.program,'a_color'),normal=gl.getAttribLocation(this.program,'a_normal'); gl.enableVertexAttribArray(pos); gl.disableVertexAttribArray(col); gl.vertexAttrib3f(col,0,0,0);
@@ -266,7 +288,7 @@ export class AtlasRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER,this.colorBuffer); gl.enableVertexAttribArray(col); gl.vertexAttribPointer(col,3,gl.FLOAT,false,0,0); gl.drawArrays(gl.TRIANGLES,0,this.vertices.length/2);
     if(this.showBorders){
       gl.uniform1f(gl.getUniformLocation(this.program,'u_layer'),2);
-      gl.uniform1f(gl.getUniformLocation(this.program,'u_borderWidth'),1.1 + Math.min(.5,Math.log2(this.zoom)*.14));
+      gl.uniform1f(gl.getUniformLocation(this.program,'u_borderWidth'),(smolder ? 2.6 : 1.1) + Math.min(.5,Math.log2(this.zoom)*.14));
       gl.bindBuffer(gl.ARRAY_BUFFER,this.borderBuffer); gl.vertexAttribPointer(pos,2,gl.FLOAT,false,16,0);
       gl.enableVertexAttribArray(normal); gl.vertexAttribPointer(normal,2,gl.FLOAT,false,16,8);
       gl.disableVertexAttribArray(col); gl.vertexAttrib3f(col,...rgb(COLORS.border) as [number,number,number]);
@@ -281,5 +303,5 @@ export class AtlasRenderer {
     return choices[0] ?? this.pickExact(sx, sy);
   }
   private pickExact(sx: number, sy: number): string | null { const x = (sx - this.width / 2) / this.scale() + this.center[0], y = (sy - this.height / 2) / this.scale() + this.center[1], v = this.vertices; for (const s of this.shapes) { if (x < s.bounds[0] || y < s.bounds[1] || x > s.bounds[2] || y > s.bounds[3]) continue; for (let i = s.start * 2; i < (s.start + s.count) * 2; i += 6) { const a = (x - v[i + 2]) * (v[i + 1] - v[i + 3]) - (v[i] - v[i + 2]) * (y - v[i + 3]); const b = (x - v[i + 4]) * (v[i + 3] - v[i + 5]) - (v[i + 2] - v[i + 4]) * (y - v[i + 5]); const c = (x - v[i]) * (v[i + 5] - v[i + 1]) - (v[i + 4] - v[i]) * (y - v[i + 1]); if (!((a < 0 || b < 0 || c < 0) && (a > 0 || b > 0 || c > 0))) return s.id; } } return null; }
-  destroy(): void { this.cancelGesture(); this.observer.disconnect(); cancelAnimationFrame(this.frame); this.gl.deleteBuffer(this.positionBuffer); this.gl.deleteBuffer(this.colorBuffer); this.gl.deleteBuffer(this.borderBuffer); this.gl.deleteBuffer(this.markerBuffer); this.gl.deleteBuffer(this.markerColorBuffer); this.gl.deleteProgram(this.program); this.gl.deleteTexture(this.terrainTexture); this.gl.deleteBuffer(this.backgroundBuffer); }
+  destroy(): void { clearInterval(this.smolderTimer); this.cancelGesture(); this.observer.disconnect(); cancelAnimationFrame(this.frame); this.gl.deleteBuffer(this.positionBuffer); this.gl.deleteBuffer(this.colorBuffer); this.gl.deleteBuffer(this.borderBuffer); this.gl.deleteBuffer(this.markerBuffer); this.gl.deleteBuffer(this.markerColorBuffer); this.gl.deleteProgram(this.program); this.gl.deleteTexture(this.terrainTexture); this.gl.deleteBuffer(this.backgroundBuffer); }
 }

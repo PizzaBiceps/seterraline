@@ -1,7 +1,9 @@
+import { cornerIcon } from './ui/corner-icons';
 import compass from './assets/seterraline-compass.svg?raw';
 
 /** Integer-grid silhouettes keep every control in the same pixel-art vocabulary. */
 export function icon(name: string, size = 20): string {
+ const original = cornerIcon(name,size); if(original)return original;
  if (name === 'compass') return compass.replace('<svg ', `<svg width="${size}" height="${size}" aria-hidden="true" `);
  const shapes: Record<string, string> = {
   menu: 'M3 5h18v3H3zM3 11h18v3H3zM3 17h18v3H3z',

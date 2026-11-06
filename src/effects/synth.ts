@@ -16,7 +16,7 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
   const sources: AudioScheduledSourceNode[] = [], nodes: AudioNode[] = [];
   const envelope = ctx.createGain(), pan = ctx.createStereoPanner();
   const length = note.length * stepLength, frequency = 440 * 2 ** ((note.midi - 69) / 12);
-  const percussion = ['kick', 'snare', 'rim', 'hat', 'open-hat'].includes(note.instrument);
+  const percussion = ['kick', 'hard-kick', 'snare', 'rim', 'hat', 'open-hat'].includes(note.instrument);
   const pad = note.instrument === 'pad', release = pad ? .24 : note.instrument === 'lead' ? .16 : .04;
   const end = start + length + release;
   nodes.push(envelope, pan); pan.pan.value = note.pan ?? 0;
@@ -52,6 +52,17 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
   };
 
   switch (note.instrument) {
+    case 'hard-kick': {
+      const distortion = ctx.createWaveShaper(), low = filter('lowpass', 2400);
+      const curve = new Float32Array(1024);
+      for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh((i / 511.5 - 1) * 14) * .7;
+      distortion.curve = curve; distortion.oversample = '2x'; nodes.push(distortion);
+      distortion.connect(low); low.connect(envelope);
+      const punch = oscillator('sine', 190, distortion, .8);
+      punch.frequency.exponentialRampToValueAtTime(frequency / 2, start + .065);
+      oscillator('sawtooth', frequency / 2, distortion, .13);
+      mix.duck(start, .65); break;
+    }
     case 'kick': {
       const sub = oscillator('sine', 155, envelope);
       sub.frequency.exponentialRampToValueAtTime(48, start + .045);
@@ -70,6 +81,17 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
     case 'hat':
     case 'open-hat': {
       const high = filter('highpass', 6500); high.connect(envelope); hiss(high, .7); break;
+    }
+    case 'hard-lead': {
+      const bright=filter('lowpass',5800,.9);bright.connect(envelope);
+      for(const cents of [-24,-12,0,12,24])oscillator('sawtooth',frequency,bright,.18,cents);
+      oscillator('square',frequency/2,bright,.12);break;
+    }
+    case 'hard-bass': {
+      const drive=ctx.createWaveShaper(),low=filter('lowpass',1600,1.2),curve=new Float32Array(512);
+      for(let i=0;i<512;i++)curve[i]=Math.tanh((i/255.5-1)*5)*.6;drive.curve=curve;nodes.push(drive);drive.connect(low);low.connect(envelope);
+      oscillator('sawtooth',frequency/2,drive,.5);oscillator('square',frequency/2,drive,.2,-7);
+      envelope.gain.cancelScheduledValues(start);envelope.gain.setValueAtTime(.001,start);envelope.gain.linearRampToValueAtTime(note.velocity,start+length*.75);envelope.gain.linearRampToValueAtTime(0,end);break;
     }
     case 'bass': {
       const low = filter('lowpass', 1100, 1.1); low.frequency.exponentialRampToValueAtTime(250, start + length);

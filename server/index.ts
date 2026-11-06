@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import atlas from '../public/data/countries.json';
-import { act, checkConfig, checkVersion, join, snapshot, type Room } from './room';
+import { act, checkConfig, checkVersion, join, snapshot, expireRound, ROUND_DURATION_MS, type Room } from './room';
 interface Env { ROOMS: DurableObjectNamespace<PartyRoom>; ALLOWED_ORIGINS: string }
 const pool = atlas.features.map(f => ({ id: String(f.id), ...f.properties }));
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -41,21 +41,34 @@ export class PartyRoom extends DurableObject<Env> {
     if (action === 'create' && request.method === 'POST' && !room) {
      checkVersion(body.version);
      room = { code: url.pathname.split('/')[1], config: checkConfig(body.config), phase: 'lobby', hostId: '', players: [], startedAt: 0, game: 0, expiresAt: now + 86400000 };
-     const player = join(room, body.name, now); await this.ctx.storage.put('room', room); await this.ctx.storage.setAlarm(room.expiresAt);
+     const player = join(room, body.name, now, body.avatar); await this.ctx.storage.put('room', room); await this.ctx.storage.setAlarm(room.expiresAt);
      return json({ token: player.token, snapshot: snapshot(room, player, now) });
     }
     if (!room || room.expiresAt <= now) return json({ error: 'This invite has expired. Create a new room.' }, 404);
     if (action === 'join' && request.method === 'POST') {
-     checkVersion(body.version); const player = join(room, body.name, now); await this.ctx.storage.put('room', room);
+     checkVersion(body.version); const player = join(room, body.name, now, body.avatar); await this.ctx.storage.put('room', room);
      return json({ token: player.token, snapshot: snapshot(room, player, now) });
     }
+    if (expireRound(room, now)) await this.ctx.storage.put('room', room);
     const player = room.players.find(p => `Bearer ${p.token}` === request.headers.get('Authorization'));
     if (!player) return json({ error: 'Join the room to continue.' }, 401);
-    if (action === 'action' && request.method === 'POST') { act(room, player, body, pool, now); await this.ctx.storage.put('room', room); }
+    const previousSeen = player.lastSeenAt || 0;
+    player.lastSeenAt = now;
+    if (action === 'action' && request.method === 'POST') { act(room, player, body, pool, now); await this.ctx.storage.put('room', room);
+     if (body.type === 'start' && room.phase === 'playing') await this.ctx.storage.setAlarm(Math.min(room.expiresAt, room.startedAt + ROUND_DURATION_MS));
+    }
     else if (action !== 'state' || request.method !== 'GET') return json({ error: 'Invalid request.' }, 405);
+    else if (now - previousSeen >= 15000) await this.ctx.storage.put('room', room);
     return json({ snapshot: snapshot(room, player, now) });
    } catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid request.' }, 400); }
   });
  }
- async alarm(): Promise<void> { await this.ctx.storage.deleteAll(); }
+ async alarm(): Promise<void> {
+  await this.ctx.blockConcurrencyWhile(async () => {
+   const room = await this.ctx.storage.get<Room>('room');
+   if (!room || room.expiresAt <= Date.now()) { await this.ctx.storage.deleteAll(); return; }
+   if (expireRound(room, Date.now())) await this.ctx.storage.put('room', room);
+   await this.ctx.storage.setAlarm(room.phase === 'playing' ? Math.min(room.expiresAt, room.startedAt + ROUND_DURATION_MS) : room.expiresAt);
+  });
+ }
 }
