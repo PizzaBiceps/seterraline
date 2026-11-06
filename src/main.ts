@@ -207,16 +207,10 @@ function animatePodium(place = 1): void {
  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { resultEntrance=panel.animate([{opacity:0},{opacity:1}],{duration:160});return; }
  const width=place===2?18:32;
  const pose=(x:number,y:number,scale:number)=>`translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
- const frames:Keyframe[]=[
-  {transform:pose(0,44,.9),offset:0,easing:'cubic-bezier(.15,.8,.3,1)'},
-  {transform:pose(0,0,1.025),offset:.2,easing:'ease-in-out'},
-  {transform:pose(-width,0,1),offset:.3,easing:'ease-in-out'},
-  {transform:pose(width*.85,0,1),offset:.43,easing:'ease-in-out'},
-  {transform:pose(-width*.55,0,1),offset:.56,easing:'ease-in-out'},
-  {transform:pose(width*.32,0,1),offset:.69,easing:'ease-in-out'},
-  {transform:pose(-width*.14,0,1),offset:.82,easing:'ease-in-out'},
-  {transform:pose(0,0,1),offset:1}
- ];resultEntrance=panel.animate(frames,{duration:1350,easing:'linear'});
+ const frames:Keyframe[]=[{transform:pose(0,44,.9),offset:0,easing:'cubic-bezier(.15,.8,.3,1)'},{transform:pose(0,0,1.025),offset:.18,easing:'ease-in-out'}];
+ const offsets=[.29,.49,.65,.77,.86,.92,.965,1],amplitudes=[-1,.8,-.5,.28,-.13,.055,-.02,0];
+ offsets.forEach((offset,i)=>frames.push({transform:pose(width*amplitudes[i],0,1),offset,easing:'ease-in-out'}));
+ resultEntrance=panel.animate(frames,{duration:1350,easing:'linear'});
 }
 function finish(): void {
  streakHeat.set(0);
