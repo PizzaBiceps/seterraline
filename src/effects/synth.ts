@@ -83,9 +83,11 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
       const high = filter('highpass', 6500); high.connect(envelope); hiss(high, .7); break;
     }
     case 'hard-lead': {
-      const bright=filter('lowpass',5800,.9);bright.connect(envelope);
-      for(const cents of [-24,-12,0,12,24])oscillator('sawtooth',frequency,bright,.18,cents);
-      oscillator('square',frequency/2,bright,.12);break;
+      const bite=filter('lowpass',4700,1.15),drive=ctx.createWaveShaper(),curve=new Float32Array(1024);
+      for(let i=0;i<1024;i++)curve[i]=Math.tanh((i/511.5-1)*3.7)*.74;
+      drive.curve=curve;drive.oversample='2x';nodes.push(drive);drive.connect(bite);bite.connect(envelope);
+      for(const cents of [-22,-10,0,10,22])oscillator('sawtooth',frequency,drive,.17,cents);
+      oscillator('sawtooth',frequency/2,drive,.19,-4);break;
     }
     case 'hard-bass': {
       const drive=ctx.createWaveShaper(),low=filter('lowpass',1600,1.2),curve=new Float32Array(512);

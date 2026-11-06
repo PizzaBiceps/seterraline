@@ -205,14 +205,18 @@ $('#skip').onclick = async () => {
 function animatePodium(place = 1): void {
  resultEntrance?.cancel(); const panel=$('#results'); panel.getAnimations().forEach(animation=>animation.cancel());
  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { resultEntrance=panel.animate([{opacity:0},{opacity:1}],{duration:160});return; }
- const strength=place===2?7:12;
+ const width=place===2?18:32;
  const pose=(x:number,y:number,scale:number)=>`translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
- const frames:Keyframe[]=[{transform:pose(0,64,.88),offset:0},{transform:pose(0,-4,1.035),offset:.18},{transform:pose(0,0,1),offset:.24}];
- for(let i=0;i<23;i++){
-  const decay=(1-i/23)**1.3,x=Math.round((i%2?1:-1)*strength*decay),y=Math.round(Math.sin(i*2.3)*strength*.35*decay);
-  frames.push({transform:pose(x,y,1),offset:.25+i/23*.7,easing:'steps(1)'});
- }
- frames.push({transform:pose(0,0,1),offset:1});resultEntrance=panel.animate(frames,{duration:1100,easing:'linear'});
+ const frames:Keyframe[]=[
+  {transform:pose(0,44,.9),offset:0,easing:'cubic-bezier(.15,.8,.3,1)'},
+  {transform:pose(0,0,1.025),offset:.2,easing:'ease-in-out'},
+  {transform:pose(-width,0,1),offset:.3,easing:'ease-in-out'},
+  {transform:pose(width*.85,0,1),offset:.43,easing:'ease-in-out'},
+  {transform:pose(-width*.55,0,1),offset:.56,easing:'ease-in-out'},
+  {transform:pose(width*.32,0,1),offset:.69,easing:'ease-in-out'},
+  {transform:pose(-width*.14,0,1),offset:.82,easing:'ease-in-out'},
+  {transform:pose(0,0,1),offset:1}
+ ];resultEntrance=panel.animate(frames,{duration:1350,easing:'linear'});
 }
 function finish(): void {
  streakHeat.set(0);
