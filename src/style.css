@@ -543,3 +543,15 @@ body { -webkit-text-size-adjust: 100%; }
 .finish-medal { width: 22px; height: 30px; }
 .medal-award .finish-medal { width: 64px; height: 88px; }
 .finish-medal svg { display: block; object-fit: contain; }
+/* Chipped, repaired instrument casings with sparse pixel wear. */
+.header-actions button, .zoom-controls button, .actions .utility-button, .session-stats { position: relative; clip-path: polygon(0 4px,3px 4px,3px 0,calc(100% - 6px) 0,calc(100% - 6px) 2px,100% 2px,100% calc(100% - 4px),calc(100% - 3px) calc(100% - 4px),calc(100% - 3px) 100%,4px 100%,4px calc(100% - 2px),0 calc(100% - 2px)); border-top-color: #9e9d79; border-left-color: #738b75; border-bottom-color: #10272c; border-right-color: #182c2c; }
+.header-actions button::before, .zoom-controls button::before, .actions .utility-button::before { content: ''; position: absolute; top: 3px; left: 5px; width: 2px; height: 1px; background: #c6ba8755; box-shadow: 3px 0 #c6ba8733, 11px 1px #122b2d88, 4px 2px #c6ba8722; pointer-events: none; }
+.header-actions button::after, .zoom-controls button::after, .actions .utility-button::after { content: ''; position: absolute; right: 4px; bottom: 4px; width: 2px; height: 2px; background: #9b9974; box-shadow: 1px 1px #10292c, -1px -1px #baa97b44; pointer-events: none; }
+#party { background: #34483d !important; }
+#settings { background: #444b3d !important; }
+#hint { background: #3a493c; }
+#skip { background: #41463b; }
+.zoom-controls button { background: #314841; }
+.zoom-controls button:nth-child(2)::before { top: 5px; left: 13px; }
+#skip::before { top: 5px; left: 9px; }
+.session-stats { background: #1c3836ed; border-top-color: #989b78; }
