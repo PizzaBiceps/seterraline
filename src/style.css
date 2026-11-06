@@ -443,3 +443,12 @@ body { -webkit-text-size-adjust: 100%; }
 .map-choice input:checked + span { border-color: #e1dfb0 #6e7e59 #6e7e59 #e1dfb0; background: #bcc58f; }
 .map-choice input:checked + span strong, .map-choice input:checked + span small { color: #203e38; }
 .map-choice input:focus-visible + span { outline: 2px solid #e4d49b; outline-offset: 2px; }
+
+/* Private party rooms */
+.party-standings { padding-left: 1.5rem; margin: 1rem 0; }
+.party-standings li { padding: .65rem 0; border-bottom: 1px solid #ffffff25; }
+.party-standings li span { display: inline-block; margin-right: 1rem; overflow-wrap: anywhere; }
+.party-standings small { display: block; opacity: .75; margin-top: .3rem; }
+#invite-link, #nickname { width: 100%; min-height: 44px; margin: .5rem 0 1rem; padding: .65rem; background: #102837; color: #fff; border: 2px solid #53777d; font: inherit; }
+#party-status { overflow-wrap: anywhere; }
+#party { font-size: 10px; padding: 0 10px; }

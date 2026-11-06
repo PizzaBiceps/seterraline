@@ -11,6 +11,8 @@ import { icon } from './icons';
 import { playFaviconArrival, startFaviconLoading } from './ui/favicon';
 import { compassSpinner, playCompassArrival } from './ui/compass-spinner';
 import { saveBest } from './game/records';
+import { PartyClient, partyAvailable } from './party/client';
+import type { GameCommand } from './game/engine';
 import { MODES } from './game/modes';
 import { SeaMonsters } from './map/monsters';
 import { AtlasRenderer, type Atlas } from './map/renderer';
@@ -35,7 +37,7 @@ $('#app').innerHTML = `
  </div>
  <header class="toolbar">
   <button class="identity" type="button" aria-label="Spin compass" title="Spin compass"><span class="brand-mark" aria-hidden="true">${icon('compass', 32)}</span><strong>SETERRALINE</strong></button>
-  <div class="header-actions"><button id="settings" class="square-button" aria-label="Game settings" title="Game settings">${icon('menu', 18)}<span id="quiz-name" class="sr-only">World · Countries</span></button></div>
+  <div class="header-actions"><button id="party" class="utility-button" title="Play with friends">FRIENDS</button><button id="settings" class="square-button" aria-label="Game settings" title="Game settings">${icon('menu', 18)}<span id="quiz-name" class="sr-only">World · Countries</span></button></div>
  </header>
  <section class="question" aria-label="Current question"><span id="prompt-label" class="sr-only">LOCATE</span><img id="target-flag" class="target-flag" alt="Flag to locate on the map" width="120" height="80" hidden><h1 id="target-name" aria-live="polite">Loading map</h1><span id="round-number" class="round-number">— / —</span><div class="progress-track"><div id="progress"></div></div></section>
  <div id="egg-message" class="sr-only" role="status" aria-live="polite"></div>
@@ -74,7 +76,7 @@ function syncSoundButton(): void { const button = $('#sound'); button.innerHTML 
 $('#sound').onclick = () => { sounds.toggle(); music.setMuted(!sounds.enabled); syncSoundButton(); if (sounds.enabled) sounds.play('hint'); };
 syncSoundButton();
 
-function openDialog(content: string): void { for (const control of menuControls) $('#extra-controls').append(control); $('#dialog-body').innerHTML = content; $<HTMLDialogElement>('#dialog').showModal(); }
+function openDialog(content: string): void { partyDialog = false; for (const control of menuControls) $('#extra-controls').append(control); $('#dialog-body').innerHTML = content; $<HTMLDialogElement>('#dialog').showModal(); }
 function closeDialog(): void { for (const control of menuControls) $('#extra-controls').append(control); $<HTMLDialogElement>('#dialog').close(); }
 $('.dialog-close').onclick = closeDialog;
 $<HTMLDialogElement>('#dialog').addEventListener('click', event => { if (event.target !== event.currentTarget) return; const r = $<HTMLDialogElement>('#dialog').getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(); });
@@ -86,6 +88,7 @@ function feedback(message: string, kind: 'correct' | 'wrong' | 'hint', duration 
  if (duration) feedbackTimer = setTimeout(() => { $('#feedback').hidden = true; }, duration);
 }
 function startGame(seed = crypto.getRandomValues(new Uint32Array(1))[0]): void {
+ if (party.snapshot) { partyMenu(); return; }
  targetFailure?.cancel();
  roundPulse?.cancel();
  clearTimeout(advanceTimer); clearTimeout(flashTimer); clearTimeout(feedbackTimer); transition = false; completedAt = 0; streak = 0; streakHeat.set(0); scoreDisplay.reset();
@@ -119,20 +122,20 @@ function update(): void {
  lockAnswers(false);
 }
 function renderFlag(): void {
- const country = target(), options = flagOptions(country, eligible(countries, region), state.config.seed + state.index);
+ const country = target(), options = flagOptions(country, eligible(countries, region), (party.snapshot ? 0 : state.config.seed) + state.index);
  $('#target-name').textContent = '';
  $('#flag-board').innerHTML = `<img class="quiz-flag" src="${import.meta.env.BASE_URL}flags/${country.iso}.svg" alt="Flag to identify" width="240" height="180"/><div class="flag-options">${options.map((c, i) => `<button data-answer="${c.id}"><kbd>${i + 1}</kbd>${escape(c.name)}</button>`).join('')}</div>`;
  setPixelFlag($<HTMLImageElement>('.quiz-flag'), country.iso);
  document.querySelectorAll<HTMLButtonElement>('[data-answer]').forEach(b => { b.onclick = () => guess(b.dataset.answer!); });
 }
-function guess(id: string): void {
+async function guess(id: string): Promise<void> {
 
- if (!state || state.status !== 'playing' || transition) return;
+ if (!state || state.status !== 'playing' || transition || partyBusy || (party.snapshot?.phase === 'lobby')) return;
  if (!eligible(countries, region).some(c => c.id === id)) { feedback('OUT OF BOUNDS', 'hint', 1000); return; }
  const current = target();
  if (MODES[mode].surface === 'map') sounds.play('map-click');
- state = reduceMatch(state, { type: 'guess', countryId: id, elapsedMs: performance.now() - roundStart });
- if (state.status === 'finished') completedAt = performance.now();
+ if (!await applyCommand({ type: 'guess', countryId: id, elapsedMs: performance.now() - roundStart })) return;
+ if (isFinished(state)) completedAt = performance.now();
  if (id === current.id) {
   roundPulse?.cancel();
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) roundPulse = $('#round-number').animate([
@@ -167,21 +170,23 @@ function guess(id: string): void {
   clearTimeout(flashTimer); flashTimer = setTimeout(() => syncMap(state.hinted ? { id: target().id, kind: 'hint' } : null), 800);
  }
 }
-$('#hint').onclick = () => {
- if (!state || transition || state.status !== 'playing' || state.hinted) return;
+$('#hint').onclick = async () => {
+ if (!state || transition || partyBusy || party.snapshot?.phase === 'lobby' || state.status !== 'playing' || state.hinted) return;
+ if (!await applyCommand({ type: 'hint' })) return;
  music.react({ type: 'hint' });
  sounds.play('hint'); streak = 0; streakHeat.set(0);
- state = reduceMatch(state, { type: 'hint' });
  if (MODES[mode].surface === 'map') { if (region === 'World') renderer.focus(target().region as Region); syncMap({ id: target().id, kind: 'hint' }); feedback('HINT −50', 'hint', 1300); }
  else feedback(target().name, 'hint');
  $<HTMLButtonElement>('#hint').disabled = true; $('#hint').classList.add('used');
 };
-$('#skip').onclick = () => {
- if (!state || transition || state.status !== 'playing') return;
+$('#skip').onclick = async () => {
+ if (!state || transition || partyBusy || party.snapshot?.phase === 'lobby' || state.status !== 'playing') return;
+ const current = target();
+ if (!await applyCommand({ type: 'skip', elapsedMs: performance.now() - roundStart })) return;
  music.react({ type: 'skip' });
  sounds.play('skip'); streak = 0; streakHeat.set(0); clearTimeout(flashTimer);
- const current = target(); state = reduceMatch(state, { type: 'skip', elapsedMs: performance.now() - roundStart }); transition = true; lockAnswers(true);
- if (state.status === 'finished') completedAt = performance.now();
+ transition = true; lockAnswers(true);
+ if (isFinished(state)) completedAt = performance.now();
  feedback(current.name, 'hint'); syncMap({ id: current.id, kind: 'hint' });
  if (MODES[mode].surface === 'map' && region === 'World') renderer.focus(current.region as Region);
  advanceTimer = setTimeout(() => { transition = false; roundStart = performance.now(); $('#feedback').hidden = true; update(); syncMap(); }, 1400);
@@ -195,7 +200,7 @@ function finish(): void {
  const points = score(state);
  let recordStorage: Storage | undefined;
  try { recordStorage = localStorage; } catch { /* Storage is optional. */ }
- const record = saveBest(recordStorage, state.config, { points, elapsedMs });
+ const record = party.snapshot ? undefined : saveBest(recordStorage, state.config, { points, elapsedMs });
  const bestMarkup = record ? `<p class="personal-best">${record.isNew ? 'NEW PERSONAL BEST' : 'PERSONAL BEST'}<span>${record.best.points.toLocaleString()} PTS · ${formatTime(Math.floor(record.best.elapsedMs / 1000))}</span></p>` : '';
  $('#target-name').textContent = ''; $('#prompt-label').textContent = 'FINISHED'; $('#round-number').textContent = `${state.deck.length} / ${state.deck.length}`;
  $('#flag-board').hidden = true; $('#target-flag').hidden = true; $('#results').hidden = false;
@@ -207,6 +212,7 @@ function finish(): void {
  $('#play-again').onclick = () => startGame(); $('#same-round').onclick = () => startGame(state.config.seed); $('#result-settings').onclick = settings;
 }
 function settings(): void {
+ if (party.snapshot) { partyMenu(); return; }
  if (!state) return;
  openDialog(`<h2>SETUP</h2><form id="settings-form"><fieldset class="map-choices"><legend>CHOOSE MAP</legend>${regions.map(r => `<label class="map-choice"><input type="radio" name="region" value="${r}" ${r === region ? 'checked' : ''} required><span><strong>${r}</strong><small>${eligible(countries, r).length} countries</small></span></label>`).join('')}</fieldset><label for="mode">Mode</label><select id="mode">${Object.values(MODES).map(definition => `<option value="${definition.id}" ${mode === definition.id ? 'selected' : ''}>${definition.title}</option>`).join('')}</select><label for="rounds">Countries</label><select id="rounds"><option value="10" ${rounds === 10 ? 'selected' : ''}>10</option><option value="20" ${rounds === 20 ? 'selected' : ''}>20</option><option value="0" ${rounds === 0 ? 'selected' : ''}>All</option></select><button type="submit" class="primary-button">PLAY</button></form><div id="settings-tools" class="settings-tools"></div>`);
  for (const control of menuControls) $('#settings-tools').append(control);
@@ -214,6 +220,7 @@ function settings(): void {
 }
 $('#settings').onclick = settings;
 $('#restart').onclick = () => {
+ if (party.snapshot) { partyMenu(); return; }
  if (!state) return;
  if (!state.index && !state.attempts && !state.hinted || state.status === 'finished') { startGame(); return; }
  openDialog('<h2>RESTART?</h2><p>Your current score will be reset.</p><div class="dialog-actions"><button class="primary-button" id="confirm-restart">Restart</button><button class="secondary-button" id="cancel-restart">Cancel</button></div>');
@@ -222,13 +229,75 @@ $('#restart').onclick = () => {
 $('#help').onclick = () => openDialog(`<h2>CONTROLS</h2><p>Click the country shown above the map. In Flag → Map, locate the country that matches the flag. In Flags, choose the matching country name.</p><p><strong>Scoring:</strong> 100 points per country. Wrong guesses cost 25 points; a hint costs 50. Three wrong guesses automatically skip to the next country for 0 points. Earlier correct answers earn at least 25 points. Skips earn 0. Personal bests rank points first, then fastest time, separately for each mode, map, and round length. Accuracy is points earned as a percentage of the maximum.</p><p><strong>Map:</strong> Pinch or scroll to zoom; drag to pan. Dots mark small countries. Tapping a crowded area zooms in without spending a guess; tap again to answer. Use the keyboard button to choose an answer from a list.</p><p><strong>Shortcuts:</strong> Focus the map, then use + / − to zoom, arrows to pan, and 0 to reset. In flag mode, answer with 1–4.</p>`);
 $('#zoom-in').onclick = () => renderer?.zoomBy(1.5); $('#zoom-out').onclick = () => renderer?.zoomBy(1 / 1.5); $('#reset-view').onclick = () => renderer?.focus(region);
 $('#keyboard-answer').onclick = () => {
- if (!state || transition || state.status !== 'playing') return;
+ if (!state || transition || partyBusy || party.snapshot?.phase === 'lobby' || state.status !== 'playing') return;
  openDialog(`<h2>${mode === 'flag-map' ? 'Locate this flag' : `Find ${escape(target().name)}`}</h2><form id="answer-form"><label for="country-answer">Country</label><select id="country-answer" required><option value="">Select…</option>${eligible(countries, region).sort((a, b) => a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${escape(c.name)}</option>`).join('')}</select><button type="submit" class="primary-button">Answer</button></form>`);
  $<HTMLFormElement>('#answer-form').onsubmit = event => { event.preventDefault(); const id = $<HTMLSelectElement>('#country-answer').value; if (id) { closeDialog(); guess(id); } }; $<HTMLSelectElement>('#country-answer').focus();
 };
 document.addEventListener('keydown', event => { if (mode === 'flags' && !$('#dialog').hasAttribute('open') && ['1','2','3','4'].includes(event.key)) document.querySelectorAll<HTMLButtonElement>('[data-answer]')[Number(event.key) - 1]?.click(); });
 
 setInterval(() => { if (state && !completedAt && !document.hidden) $('#time').textContent = formatTime(Math.floor((performance.now() - startedAt) / 1000)); }, 1000);
+const party = new PartyClient();
+let partyBusy = false, partyGame = -1, partyPolling = false;
+let partyDialog = false, partyMarkup = '';
+function partyError(error: unknown): void { feedback(error instanceof Error ? error.message : 'Connection lost. Try again.', 'hint', 5000); }
+function isFinished(match: MatchState): boolean { return match.status === 'finished'; }
+async function applyCommand(command: GameCommand): Promise<boolean> {
+ if (!party.snapshot) { state = reduceMatch(state, command); return true; }
+ if (partyBusy || party.snapshot.phase === 'lobby') return false;
+ partyBusy = true; lockAnswers(true);
+ try {
+  await party.action({ type: 'command', command, revision: state.revision, game: party.snapshot.game });
+  state = party.snapshot!.state!; return true;
+ } catch (error) {
+  try { await party.refresh(); if (party.snapshot?.state) { state = party.snapshot.state; update(); syncMap(); } } catch { /* Keep state until reconnect. */ }
+  partyError(error); return false;
+ } finally { partyBusy = false; lockAnswers(false); }
+}
+function partyLink(): string { const url = new URL(location.href); url.searchParams.set('room', party.snapshot!.code); return url.href; }
+function syncParty(): void {
+ const room = party.snapshot; if (!room) return;
+ if (room.state && room.game !== partyGame) {
+  partyGame = room.game; mode = room.config.mode; region = room.config.region; rounds = room.config.rounds;
+  // Reuse presentation initialization, then replace the temporary local state.
+  party.snapshot = undefined; startGame(); party.snapshot = room;
+  state = room.state; startedAt = performance.now() - (room.serverTime - room.startedAt); completedAt = 0;
+  if (state.status === 'finished') completedAt = startedAt + room.players.find(p => p.id === room.you)!.elapsedMs;
+  update(); syncMap();
+  if (partyDialog) { closeDialog(); partyDialog = false; }
+ }
+ if (partyDialog) renderRoom();
+}
+function renderRoom(): void {
+ const room = party.snapshot!;
+ const markup = `<h2>${room.phase === 'lobby' ? 'PLAY WITH FRIENDS' : room.phase === 'finished' ? 'FINAL STANDINGS' : 'LIVE STANDINGS'}</h2><p>${escape(room.config.region)} · ${MODES[room.config.mode].title} · ${room.config.rounds || 'All'} countries</p><p>${room.players.length}/8 players · ${room.phase === 'lobby' ? 'Waiting for the host' : 'Points first, then fastest finish'}</p><ol class="party-standings">${room.players.map(p => `<li><span>${escape(p.name)}${p.id === room.you ? ' (you)' : ''}${p.id === room.hostId ? ' ★' : ''}</span><strong>${p.points} PTS</strong><small>${p.finished ? 'Finished · ' + formatTime(Math.floor(p.elapsedMs / 1000)) : p.completed + ' answered'}</small></li>`).join('')}</ol><label for="invite-link">Invite link</label><input id="invite-link" readonly value="${escape(partyLink())}"><button id="copy-invite" class="secondary-button">COPY LINK</button><p id="party-status" role="status"></p>${room.you === room.hostId && room.phase !== 'playing' ? `<button id="party-start" class="primary-button" ${room.players.length < 2 ? 'disabled' : ''}>${room.phase === 'finished' ? 'REMATCH' : 'START GAME'}</button>` : ''}<button id="party-leave" class="text-button">LEAVE ROOM</button><div id="party-tools" class="settings-tools"></div><p>Invites expire after 24 hours. Keep this tab to reconnect.</p>`;
+ if (partyMarkup === markup && document.querySelector('#party-tools')) return;
+ partyMarkup = markup;
+ for (const control of menuControls) $('#extra-controls').append(control);
+ $('#dialog-body').innerHTML = markup;
+ for (const control of menuControls.filter(c => c.id !== 'restart')) $('#party-tools').append(control);
+ $('#copy-invite').onclick = async () => { try { await navigator.clipboard.writeText(partyLink()); $('#party-status').textContent = 'Link copied'; } catch { $<HTMLInputElement>('#invite-link').select(); $('#party-status').textContent = 'Select and copy the link above'; } };
+ const start = document.querySelector<HTMLButtonElement>('#party-start');
+ if (start) start.onclick = async () => { partyBusy = true; start.disabled = true; try { await party.action({ type: 'start' }); syncParty(); } catch (error) { partyError(error); start.disabled = false; } finally { partyBusy = false; } };
+ $('#party-leave').onclick = async () => { partyBusy = true; try { await party.action({ type: 'leave' }); } catch (error) { partyBusy = false; partyError(error); return; } partyBusy = false; party.clear(); partyGame = -1; partyDialog = false; const url = new URL(location.href); url.searchParams.delete('room'); history.replaceState(null, '', url); closeDialog(); startGame(); };
+}
+function partyMenu(code?: string): void {
+ if (party.snapshot) { openDialog(''); partyDialog = true; renderRoom(); return; }
+ openDialog(`<h2>${code ? 'JOIN FRIENDS' : 'PLAY WITH FRIENDS'}</h2><p>${code ? 'Join this private room.' : 'Create a private room for 2–8 players using your current map, mode and round length.'}</p>${partyAvailable ? '<form id="party-form"><label for="nickname">Nickname</label><input id="nickname" maxlength="24" required autocomplete="nickname"><button class="primary-button" type="submit">' + (code ? 'JOIN ROOM' : 'CREATE INVITE') + '</button><p id="party-status" role="status"></p></form>' : '<p>Online rooms are not available on this site yet. Please try again later.</p>'}`);
+ const form = document.querySelector<HTMLFormElement>('#party-form');
+ if (form) form.onsubmit = async event => { event.preventDefault(); const button = form.querySelector('button')!; button.disabled = true; try { await party.enter($<HTMLInputElement>('#nickname').value, { mode, region, rounds, seed: 0 }, code); const url = new URL(location.href); url.searchParams.set('room', party.snapshot!.code); history.replaceState(null, '', url); partyMenu(); syncParty(); } catch (error) { $('#party-status').textContent = error instanceof Error ? error.message : 'Could not connect'; button.disabled = false; } };
+}
+$('#party').onclick = () => partyMenu(new URL(location.href).searchParams.get('room') || undefined);
+$<HTMLDialogElement>('#dialog').addEventListener('close', () => { partyDialog = false; });
+async function restoreParty(): Promise<void> {
+ const code = new URL(location.href).searchParams.get('room'); if (!code) return;
+ if (!/^[a-f0-9]{16}$/.test(code)) { partyError(new Error('Invalid invite link.')); return; }
+ if (await party.restore(code)) { partyMenu(); syncParty(); } else partyMenu(code);
+}
+setInterval(async () => {
+ if (!party.snapshot || partyBusy || partyPolling || document.hidden) return;
+ partyPolling = true;
+ try { await party.refresh(); syncParty(); } catch (error) { partyError(error); } finally { partyPolling = false; }
+}, 3000);
 async function boot(): Promise<void> {
  const stopFaviconLoading = startFaviconLoading();
  try {
@@ -250,7 +319,7 @@ async function boot(): Promise<void> {
   renderer.onHover = (id, x, y) => { const tip = $('#tooltip'); tip.hidden = !id || transition || mode === 'flags' || state?.status === 'finished' || !state?.answers.some(a => a.targetId === id && a.correct); if (id) { tip.textContent = state?.answers.some(a => a.targetId === id && a.correct) ? countries.find(c => c.id === id)!.name : 'Click to guess'; tip.style.left = `${Math.max(8, Math.min(x + 15, innerWidth - 135))}px`; tip.style.top = `${Math.max(125, y - 36)}px`; } };
   renderer.onContextLost = () => { $('#load-error').hidden = false; $('#load-error').innerHTML = '<h2>Map connection lost</h2><p>Reload to restore the map, or continue with keyboard answers.</p><button class="primary-button" onclick="location.reload()">Reload</button>'; };
   stopFaviconLoading();
-  $('#loading').hidden = true; startGame(); playCompassArrival($('.brand-mark')); void playFaviconArrival();
+  $('#loading').hidden = true; startGame(); void restoreParty(); playCompassArrival($('.brand-mark')); void playFaviconArrival();
  } catch (error) {
   stopFaviconLoading();
   $('#loading').hidden = true; $('#target-name').textContent = 'Map unavailable'; $('#load-error').hidden = false;

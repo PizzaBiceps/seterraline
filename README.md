@@ -56,17 +56,39 @@ Use the alias and GitHub noreply email for commit authorship. Keep the GitHub pr
 - Accuracy is earned points divided by the maximum points for completed countries.
 - Round settings: 10, 20, or all available countries. Finishing a round shows results, a review list, replay, and a new-round option.
 
-## Structure and future multiplayer
+## Structure
 
 - `src/game/engine.ts`: pure, immutable match reducer, deterministic seeded shuffle, serializable configuration/state, commands, and transport contracts. No DOM, WebGL, storage, or wall-clock dependency. The caller supplies elapsed time.
 - `src/game/modes.ts`: mode registry for prompts and map/choice presentation. All modes use stable country IDs and the same scoring rules. New answer formats can add a mode here while sharing the match lifecycle.
-- `src/game/protocol.ts`: versioned challenge and party-room message contracts, dataset version, command sequencing, expected revisions, snapshots, lobbies, and standings.
+- `src/game/protocol.ts`: reserved challenge and WebSocket message contracts (invite rooms use `src/party/types.ts`), dataset version, command sequencing, expected revisions, snapshots, lobbies, and standings.
 - `src/map/renderer.ts`: texture rendering, vector projection/triangulation, batched highlights, country picking, small-country markers, camera, and input. It reports IDs and does not own quiz rules.
 - `src/map/terrain.ts`: deterministic pixel-terrain generator, brought over from the approved pixel-atlas exploration. Open `/bake.html` in development to regenerate `public/data/pixel-terrain.png`. The terrain is stylized artwork, not measured elevation or vegetation data.
 - `src/effects/`: lazy Web Audio effects, a bar-synchronized generative synth sequencer, pure seeded composition/flow functions, an independent Canvas 2D pixel-particle layer, and bounded score animations. These do not change match state or map picking. The music schedules just 180 ms ahead, runs its scheduler only while enabled and visible, and caps active voices at 64.
 - `src/main.ts`: local session orchestration and minimal UI.
 
-Multiplayer is **prepared, not implemented**: there is no server, matchmaking, authentication, or network synchronization. For a future challenge mode, share the seed/configuration plus a pinned dataset version. For party rooms, run the reducer on an authoritative server, associate sockets with authenticated players, validate commands and monotonic sequences, reject stale revisions, calculate timing server-side, and distribute snapshots/standings. Treat client score, identity, elapsed time, and answers as untrusted. Do not send other players' unrevealed decks in competitive play. The current transport types are the integration boundary; server persistence and reconnect behavior still need implementation.
+## Private invite rooms (Cloudflare)
+
+Choose your map, mode and round length in Setup, then press **FRIENDS** to create an invite. Share the link, wait for 2–8 players, and let the host start. All three game modes and all regions are supported. Everyone receives the same deck and plays independently. Standings sort by points, finished players first on equal points, then faster completion (or progress while still playing). Open FRIENDS during a match to see standings; the host can start a rematch once everyone finishes. Leave a room to return to solo play. Party runs do not write personal records.
+
+The authoritative backend is a Cloudflare Worker with one SQLite-backed Durable Object per room, available on Workers Free within its usage quotas. The frontend can stay on GitHub Pages. No separate database or always-on server is needed. The client polls every three seconds while visible; room state is stored after mutations. Each player receives only their revealed questions and aggregate opponent standings. Scores, revision checks and elapsed times are calculated on the server. Nicknames are not accounts; private bearer tokens in session storage allow reconnection within the same tab. Treat an invite as access to the room. Invites and room data expire 24 hours after creation. A closed tab reserves its seat until rejoining and leaving or room expiration; the host transfers when explicitly leaving.
+
+Local development (two terminals):
+
+```sh
+npm run server:dev
+npm run dev
+```
+
+The development client uses `http://127.0.0.1:8787`. Open the invite in another browser/tab to test multiple players. Run `npm test`, `npm run server:check`, and `npm run build` before deployment.
+
+Deployment:
+
+1. Sign in to your Cloudflare account with `npx wrangler login`.
+2. Set `ALLOWED_ORIGINS` in `wrangler.jsonc` to the frontend origin(s). The GitHub Pages origin and local development origins are included initially.
+3. Run `npm run server:deploy` and copy the resulting HTTPS Worker URL.
+4. The production client defaults to `https://seterraline-party.seterraline.workers.dev`. Rebuild/deploy the frontend to use it. To use a different server, set the repository Actions variable `VITE_PARTY_API_URL` to its Worker URL (no `/api` suffix). For a manual build use `VITE_PARTY_API_URL=https://your-worker.workers.dev npm run build`.
+
+The room server is deployed at `https://seterraline-party.seterraline.workers.dev`. Cloudflare login and future server deployments use Wrangler; the GitHub Pages workflow publishes only the frontend. The backend bundles country metadata from the same data file as the frontend; deploy both together when updating datasets or rules. Polling uses request quota, so review [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) as usage grows.
 
 ## Rendering and performance
 
