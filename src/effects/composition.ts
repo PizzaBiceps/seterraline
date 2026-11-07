@@ -10,7 +10,7 @@ export function nextEnergy(energy: number, event: FlowEvent): number {
 export const MUSIC_BPM = 112;
 export const STEP_SECONDS = 60 / MUSIC_BPM / 4;
 export const stepOffset = (step: number): number => step * STEP_SECONDS;
-export type Instrument = 'bass' | 'hard-bass' | 'hard-lead' | 'arp' | 'pulse' | 'lead' | 'chord' | 'pad' | 'hat' | 'open-hat' | 'kick' | 'hard-kick' | 'snare' | 'rim';
+export type Instrument = 'bass' | 'hard-bass' | 'buzz' | 'hard-lead' | 'arp' | 'pulse' | 'lead' | 'chord' | 'pad' | 'hat' | 'open-hat' | 'kick' | 'hard-kick' | 'snare' | 'rim';
 export interface MusicNote { step: number; midi: number; length: number; velocity: number; instrument: Instrument; pan?: number }
 
 // Am – F – C – G. Strong minor-key triads and octaves, with no jazzy extensions.

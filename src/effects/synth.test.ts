@@ -5,7 +5,7 @@ import type { Instrument } from './composition';
 import type { MusicMix } from './music-mix';
 
 test('muting stops every source in a layered instrument and all note nodes are released', () => {
- for (const instrument of ['bass','hard-bass','hard-lead','lead','pulse','pad','chord','arp','kick','hard-kick','snare','rim','hat','open-hat'] as Instrument[]) {
+ for (const instrument of ['bass','hard-bass','buzz','hard-lead','lead','pulse','pad','chord','arp','kick','hard-kick','snare','rim','hat','open-hat'] as Instrument[]) {
   const nodes: { disconnected:boolean }[]=[];
   const sources: { stopTimes:number[]; onended: (()=>void)|null; disconnected:boolean }[]=[];
   const parameter=()=>({ value:0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} });

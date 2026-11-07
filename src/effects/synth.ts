@@ -93,6 +93,14 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
       const raw=oscillator('sawtooth',frequency*.985,bite,.32);raw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
       oscillator('sawtooth',frequency,grit,.4,-5);oscillator('sawtooth',frequency,grit,.36,5);break;
     }
+    case 'buzz': {
+      const resonance=filter('lowpass',3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
+      for(let i=0;i<1024;i++){const x=i/511.5-1;curve[i]=Math.max(-.68,Math.min(.68,x*3.5));}
+      grit.curve=curve;grit.oversample='2x';nodes.push(grit);grit.connect(resonance);resonance.connect(envelope);
+      resonance.frequency.setValueAtTime(3200,start);resonance.frequency.exponentialRampToValueAtTime(650,start+Math.max(.04,length));
+      const saw=oscillator('sawtooth',frequency*.97,grit,.65);saw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
+      oscillator('sawtooth',frequency,grit,.35,7);oscillator('square',frequency/2,grit,.14);break;
+    }
     case 'hard-bass': {
       const drive=ctx.createWaveShaper(),low=filter('lowpass',1600,1.2),curve=new Float32Array(512);
       for(let i=0;i<512;i++)curve[i]=Math.tanh((i/255.5-1)*5)*.6;drive.curve=curve;nodes.push(drive);drive.connect(low);low.connect(envelope);

@@ -15,5 +15,8 @@ export function composeHardstyleBar(track: SoundtrackId, seed: number, bar: numb
  const chord=original.filter(n=>n.instrument==='pad').map(n=>n.midi).slice(0,3);
  for(const step of [2,6,10,14])chord.forEach((midi,i)=>notes.push({instrument:'chord',step,midi:midi+12,length:1.4,velocity:.05,pan:(i-1)*.5}));
  for(let i=0;i<8;i++)notes.push({instrument:'arp',step:i*2+1,midi:Math.min(96,(chord[i%chord.length]||root+24)+12),length:.65,velocity:.05,pan:i%2?.7:-.7});
+ // Original syncopated midrange buzz riff under the game's existing hook.
+ const buzzSteps=[0,3,6,7,10,12,14];
+ buzzSteps.forEach((step,i)=>notes.push({instrument:'buzz',step,midi:root+12+(i===3||i===6?7:0),length:i===0?2.3:1.25,velocity:.18,pan:i%2?.12:-.12}));
  return notes;
 }
