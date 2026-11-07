@@ -3,7 +3,14 @@ import { validateNickname } from '../src/game/nickname';
 import { createMatch, reduceMatch, eligible, flagOptions, score, type Country, type MatchConfig, type MatchState } from '../src/game/engine';
 import { MAX_PLAYERS, PARTY_VERSION, type PartySnapshot } from '../src/party/types';
 export interface Member { id: string; token: string; name: string; state?: MatchState; questionAt: number; finishedAt: number; lastSeenAt?: number; lastActionAt?: number; stopped?: boolean; timedOut?: boolean; finishPlace?: number; lastGuessAt?: number; lastGuessCorrect?: boolean; dunceHat?: boolean; avatar?: number[] }
-export interface Room { code: string; config: MatchConfig; phase: 'lobby' | 'playing' | 'finished'; hostId: string; players: Member[]; startedAt: number; game: number; expiresAt: number; winnerId?: string; loserId?: string; kickVotes?: Record<string, string[]> }
+export interface Room { code: string; config: MatchConfig; phase: 'lobby' | 'playing' | 'finished' | 'canceled'; lobbyDeadlineAt?: number; hostId: string; players: Member[]; startedAt: number; game: number; expiresAt: number; winnerId?: string; loserId?: string; kickVotes?: Record<string, string[]> }
+export const LOBBY_WAIT_MS = 5 * 60 * 1000;
+export function lobbyDeadline(room: Room): number { return room.lobbyDeadlineAt ?? room.expiresAt - 86400000 + LOBBY_WAIT_MS; }
+export function advanceLobby(room: Room, pool: Country[], now: number): boolean {
+ if (room.phase !== 'lobby' || (room.players.length < MAX_PLAYERS && now < lobbyDeadline(room))) return false;
+ if (room.players.length < 2) { room.phase='canceled'; return true; }
+ act(room, room.players.find(p=>p.id===room.hostId)!, {type:'start'}, pool, now); return true;
+}
 export const ROUND_DURATION_MS = 10 * 60 * 1000;
 function endRound(room: Room, now: number, timedOut = false): void {
  for (const p of room.players) if (p.state?.status === 'playing') {
@@ -22,7 +29,7 @@ export function checkConfig(value: unknown): MatchConfig {
  return { mode: c.mode, region: c.region, rounds: c.rounds, seed: crypto.getRandomValues(new Uint32Array(1))[0] };
 }
 export function join(room: Room, name: unknown, now: number, avatar?: unknown): Member {
- if (room.phase !== 'lobby') throw new Error('This game has already started. Ask the host for a rematch.');
+ if (room.phase !== 'lobby') throw new Error(room.players.length>=MAX_PLAYERS ? 'This room is full (8 players); the game has already started.' : 'This game has already started. Ask the host for a rematch.');
  if (room.players.length >= MAX_PLAYERS) throw new Error('This room is full (8 players).');
  const displayName = validateNickname(name);
  const avatarPixels = avatar === undefined ? undefined : validateAvatar(avatar);
@@ -32,6 +39,7 @@ export function join(room: Room, name: unknown, now: number, avatar?: unknown): 
 }
 export function act(room: Room, player: Member, body: Record<string, unknown>, pool: Country[], now: number): void {
  expireRound(room, now);
+ if (room.phase==='canceled') throw new Error('This party has closed.');
  if (body.type === 'start') {
   if (player.id !== room.hostId) throw new Error('Only the host can start.');
   if (room.phase === 'playing') throw new Error('Finish the current game first.');
@@ -74,7 +82,7 @@ export function act(room: Room, player: Member, body: Record<string, unknown>, p
 }
 export function snapshot(room: Room, player: Member, now: number): PartySnapshot {
  const state = player.state;
- return { code: room.code, hostId: room.hostId, you: player.id, phase: room.phase, config: { ...room.config, seed: 0 }, game: room.game, startedAt: room.startedAt, serverTime: now, winnerId: room.winnerId, loserId: room.loserId, deadlineAt: room.startedAt ? room.startedAt + ROUND_DURATION_MS : 0, total: state?.deck.length || 0,
+ return { code: room.code, hostId: room.hostId, you: player.id, phase: room.phase, lobbyDeadlineAt: lobbyDeadline(room), config: { ...room.config, seed: 0 }, game: room.game, startedAt: room.startedAt, serverTime: now, winnerId: room.winnerId, loserId: room.loserId, deadlineAt: room.startedAt ? room.startedAt + ROUND_DURATION_MS : 0, total: state?.deck.length || 0,
   players: room.players.map(p => ({ id: p.id, name: p.name, points: p.state ? score(p.state) : 0, completed: p.state?.index || 0, finished: !!p.finishedAt && !p.stopped, stopped: !!p.stopped, timedOut: !!p.timedOut, finishPlace: p.finishPlace, lastGuessAt: p.lastGuessAt, lastGuessCorrect: p.lastGuessCorrect, dunceHat: p.dunceHat, avatar: p.avatar || defaultAvatar(p.id), kickVotes: room.kickVotes?.[p.id]?.length || 0, votedToKick: room.kickVotes?.[p.id]?.includes(player.id) || false, presence: now - (p.lastSeenAt ?? room.startedAt) > 45000 ? 'offline' as const : now - (p.lastActionAt ?? room.startedAt) > 60000 ? 'away' as const : 'active' as const, elapsedMs: room.startedAt ? (p.finishedAt || now) - room.startedAt : 0 })).sort((a,b) => b.points - a.points || Number(b.finished) - Number(a.finished) || (a.finished && b.finished ? a.elapsedMs - b.elapsedMs : b.completed - a.completed)),
   state: state ? { ...state, config: { ...state.config, seed: 0 }, deck: state.deck.map((id,i) => i <= state.index ? id : '') } : undefined };
 }
@@ -89,7 +97,9 @@ function assignAwards(room: Room, now: number): void {
  }
 }
 function removePlayer(room: Room, id: string, now: number): void {
+ const wasLobby=room.phase==='lobby';
  room.players = room.players.filter(p=>p.id!==id);
+ if (wasLobby && room.players.length<2) room.phase='canceled';
  if (room.hostId === id) room.hostId = room.players[0]?.id || '';
  if (room.kickVotes) { delete room.kickVotes[id]; for (const key of Object.keys(room.kickVotes)) room.kickVotes[key] = room.kickVotes[key].filter(v=>v!==id); }
  if (room.phase === 'playing' && room.players.every(p=>p.state?.status==='finished')) { room.phase = 'finished'; assignAwards(room, now); }

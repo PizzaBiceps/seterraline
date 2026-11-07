@@ -6,6 +6,8 @@ export const partyAvailable = !!base;
 export class PartyClient {
  snapshot?: PartySnapshot;
  token = '';
+ receivedAt = 0;
+ exitReason?: 'canceled' | 'removed';
  private pending: Promise<unknown> = Promise.resolve();
  request(path: string, body?: unknown): Promise<{ snapshot: PartySnapshot; token?: string }> {
   const result = this.pending.then(() => this.performRequest(path, body));
@@ -15,8 +17,9 @@ export class PartyClient {
  private async performRequest(path: string, body?: unknown): Promise<{ snapshot: PartySnapshot; token?: string }> {
   if (!base) throw new Error('Online rooms are not configured yet.');
   const response = await fetch(`${base}/api/rooms${path}`, { method: body ? 'POST' : 'GET', headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000) });
-  const data = await response.json(); if (!response.ok) { if (response.status === 401) { this.clear(); throw new Error('You are no longer in this room.'); } throw new Error(data.error || 'Could not connect to the room.'); }
-  this.snapshot = data.snapshot;
+  const data = await response.json(); if (!response.ok) { if (response.status===401 || response.status===410 || (response.status===404&&this.snapshot)) { this.clear(); this.exitReason=response.status===410?'canceled':'removed'; throw new Error(data.error || 'You are no longer in this party.'); } throw new Error(data.error || 'Could not connect to the room.'); }
+  if(data.snapshot?.phase==='canceled'){this.clear();this.exitReason='canceled';throw new Error('The party closed because fewer than two players were present.');}
+  this.snapshot = data.snapshot; this.receivedAt=performance.now(); this.exitReason=undefined;
   if (data.token) { this.token = data.token; try { sessionStorage.setItem(`party:${data.snapshot.code}`, this.token); } catch { /* Rejoin within this tab still works. */ } }
   return data;
  }

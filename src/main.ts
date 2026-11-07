@@ -1,5 +1,6 @@
 import '@fontsource/silkscreen/latin-400.css';
 import './style.css';
+import { showGameLauncher } from './ui/launcher';
 import { avatarPicker, avatarSvg } from './ui/avatar-picker';
 import { dunceCap, showDunceSlots } from './ui/dunce-slots';
 import { finishMedal } from './ui/finish-medal';
@@ -17,7 +18,6 @@ import { playFaviconArrival, startFaviconLoading } from './ui/favicon';
 import { compassSpinner, playCompassArrival } from './ui/compass-spinner';
 import { saveBest } from './game/records';
 import { PartyClient, partyAvailable } from './party/client';
-import type { Standing } from './party/types';
 import type { GameCommand } from './game/engine';
 import { MODES } from './game/modes';
 import { SeaMonsters } from './map/monsters';
@@ -56,6 +56,7 @@ $('#app').innerHTML = `
  <div id="extra-controls" hidden><button id="sound" class="utility-button" aria-label="Mute sound" title="Mute sound" aria-pressed="true">${icon('sound', 17)}</button><button id="keyboard-answer" class="utility-button" aria-label="Answer using keyboard">${icon('keyboard', 17)}<span>Type answer</span></button><button id="restart" class="utility-button" aria-label="Restart round">${icon('reset', 17)}<span>New round</span></button><button id="help" class="utility-button" aria-label="How to play">${icon('help', 17)}<span>Controls</span></button></div>
  <div class="loading" id="loading" role="status">${compassSpinner(64)}<span>Loading map</span></div>
  <div id="load-error" class="error-panel" hidden></div>
+ <section id="launcher" class="launcher" aria-label="Choose your game" hidden></section>
  <section id="results" class="results" aria-label="Round results" hidden></section>
 </main>
 <dialog id="dialog"><button class="dialog-close icon-only" aria-label="Close dialog">${icon('close', 19)}</button><div id="dialog-body"></div></dialog>`;
@@ -72,6 +73,8 @@ const impacts = new ImpactEffects($('.game'));
 const effects = new ClickEffects($('.game'));
 const fireAudio = new FireCrackle(()=>sounds.audioContext,()=>sounds.enabled);
 const podiumFlames = new PodiumFlames($('.game'),active=>fireAudio.setActive(active));
+const leaderFlames = new PodiumFlames($('.game'));
+let leadingAvatar:HTMLElement|undefined;
 let pointerStart = { x: 0, y: 0 }, lastPointer = { x: innerWidth / 2, y: innerHeight / 2, at: 0 };
 function effectOrigin(): { x: number; y: number } { return performance.now() - lastPointer.at < 350 ? lastPointer : { x: innerWidth / 2, y: innerHeight / 2 }; }
 document.addEventListener('pointerdown', event => { pointerStart = { x: event.clientX, y: event.clientY }; sounds.unlock(); music.unlock(); fireAudio.sync(); }, { capture: true });
@@ -99,7 +102,8 @@ function feedback(message: string, kind: 'correct' | 'wrong' | 'hint', duration 
 }
 function startGame(seed = crypto.getRandomValues(new Uint32Array(1))[0]): void {
  if (party.snapshot) { partyMenu(); return; }
- resultEntrance?.cancel(); podiumFlames.stop(); renderer?.smolderBorders(0); $('#results').classList.remove('victory-result','podium-first','podium-second');
+ $('#launcher').hidden=true; $('#map').removeAttribute('inert'); $('.game').classList.remove('is-launching');
+ resultEntrance?.cancel(); podiumFlames.stop(); leaderFlames.stop(); leadingAvatar=undefined; renderer?.smolderBorders(0); $('#results').classList.remove('victory-result','podium-first','podium-second');
  targetFailure?.cancel();
  roundPulse?.cancel();
  clearTimeout(advanceTimer); clearTimeout(flashTimer); clearTimeout(feedbackTimer); transition = false; completedAt = 0; streak = 0; streakHeat.set(0); scoreDisplay.reset();
@@ -110,6 +114,10 @@ function startGame(seed = crypto.getRandomValues(new Uint32Array(1))[0]): void {
  $('.game').classList.toggle('flag-map-mode', mode === 'flag-map');
  $('#keyboard-answer').hidden = mode === 'flags'; $('.zoom-controls').hidden = mode === 'flags';
  renderer.focus(region); syncMap(); update();
+}
+function launchGamePicker():void {
+ music.setPlaying(false);$('#map').setAttribute('inert','');$('.game').classList.add('is-launching');
+ showGameLauncher($('#launcher'),countries,rounds,(chosenMode,chosenRegion,chosenRounds)=>{mode=chosenMode;region=chosenRegion;rounds=chosenRounds;startGame();},(code,chosenRounds)=>{if(chosenRounds!==undefined)rounds=chosenRounds;partyMenu(code);});
 }
 function lockAnswers(locked: boolean): void {
  $<HTMLButtonElement>('#hint').disabled = locked || state.hinted || state.status === 'finished';
@@ -255,7 +263,7 @@ $('#restart').onclick = () => {
  openDialog('<h2>RESTART?</h2><p>Your current score will be reset.</p><div class="dialog-actions"><button class="primary-button" id="confirm-restart">Restart</button><button class="secondary-button" id="cancel-restart">Cancel</button></div>');
  $('#confirm-restart').onclick = () => { closeDialog(); startGame(); }; $('#cancel-restart').onclick = closeDialog;
 };
-$('#help').onclick = () => openDialog(`<h2>CONTROLS</h2><p>Click the country shown above the map. In Flag → Map, locate the country that matches the flag. In Flags, choose the matching country name.</p><p><strong>Scoring:</strong> 100 points per country. Wrong guesses cost 25 points; a hint costs 50. Three wrong guesses automatically skip to the next country for 0 points. Earlier correct answers earn at least 25 points. Skips earn 0. Personal bests rank points first, then fastest time, separately for each mode, map, and round length. Accuracy is points earned as a percentage of the maximum.</p><p><strong>Map:</strong> Pinch or scroll to zoom; drag to pan. Dots mark small countries. Tapping a crowded area zooms in without spending a guess; tap again to answer. Use the keyboard button to choose an answer from a list.</p><p><strong>Shortcuts:</strong> Focus the map, then use + / − to zoom, arrows to pan, and 0 to reset. In flag mode, answer with 1–4.</p>`);
+$('#help').onclick = () => openDialog(`<h2>CONTROLS</h2><p>Click the country shown above the map. In Flag → Country, locate the country that matches the flag. In Flags, choose the matching country name.</p><p><strong>Scoring:</strong> 100 points per country. Wrong guesses cost 25 points; a hint costs 50. Three wrong guesses automatically skip to the next country for 0 points. Earlier correct answers earn at least 25 points. Skips earn 0. Personal bests rank points first, then fastest time, separately for each mode, map, and round length. Accuracy is points earned as a percentage of the maximum.</p><p><strong>Map:</strong> Pinch or scroll to zoom; drag to pan. Dots mark small countries. Tapping a crowded area zooms in without spending a guess; tap again to answer. Use the keyboard button to choose an answer from a list.</p><p><strong>Shortcuts:</strong> Focus the map, then use + / − to zoom, arrows to pan, and 0 to reset. In flag mode, answer with 1–4.</p>`);
 $('#zoom-in').onclick = () => renderer?.zoomBy(1.5); $('#zoom-out').onclick = () => renderer?.zoomBy(1 / 1.5); $('#reset-view').onclick = () => renderer?.focus(region);
 $('#keyboard-answer').onclick = () => {
  if (!state || transition || partyBusy || party.snapshot?.phase === 'lobby' || state.status !== 'playing') return;
@@ -269,7 +277,7 @@ const party = new PartyClient();
 let celebratedGame = '', spunGame = '';
 let partyBusy = false, partyGame = -1, partyPolling = false;
 let partyDialog = false, partyMarkup = '';
-function partyError(error: unknown): void { feedback(error instanceof Error ? error.message : 'Connection lost. Try again.', 'hint', 5000); }
+function partyError(error: unknown): void { if(!party.snapshot&&party.exitReason){handlePartyExit(error);return;} feedback(error instanceof Error ? error.message : 'Connection lost. Try again.', 'hint', 5000); }
 function isFinished(match: MatchState): boolean { return match.status === 'finished'; }
 async function applyCommand(command: GameCommand): Promise<boolean> {
  if (!party.snapshot) { state = reduceMatch(state, command); return true; }
@@ -279,16 +287,29 @@ async function applyCommand(command: GameCommand): Promise<boolean> {
   await party.action({ type: 'command', command, revision: state.revision, game: party.snapshot.game });
   state = party.snapshot!.state!; renderActivity(); return true;
  } catch (error) {
-  if (!party.snapshot) { partyDialog=false; closeDialog(); syncParty(); startGame(); partyError(error); return false; }
+  if (!party.snapshot) { handlePartyExit(error); return false; }
   try { await party.refresh(); if (party.snapshot?.state) { state = party.snapshot.state; update(); syncMap(); } } catch { /* Keep state until reconnect. */ }
   partyError(error); return false;
  } finally { partyBusy = false; lockAnswers(false); }
 }
+function handlePartyExit(error:unknown):void {
+ const canceled=party.exitReason==='canceled';party.exitReason=undefined;partyDialog=false;partyGame=-1;closeDialog();
+ const url=new URL(location.href);url.searchParams.delete('room');history.replaceState(null,'',url);syncParty();startGame();
+ if(canceled){openDialog('<h2>PARTY CLOSED</h2><p>Not enough players to start. Create a new party when your friends are ready.</p><button id="new-party" class="primary-button">CREATE A PARTY</button>');$('#new-party').onclick=()=>partyMenu();}
+ else partyError(error);
+}
+function updateLobbyClock():void {
+ const room=party.snapshot,clock=document.querySelector('#party-countdown');if(!room||room.phase!=='lobby'||!clock)return;
+ const remaining=Math.max(0,Math.ceil((room.lobbyDeadlineAt-room.serverTime-(performance.now()-party.receivedAt))/1000));clock.textContent=remaining?formatTime(remaining):'Starting…';
+}
+setInterval(updateLobbyClock,1000);
 function partyLink(): string { const url = new URL(location.href); url.searchParams.set('room', party.snapshot!.code); return url.href; }
 function syncParty(): void {
  const room = party.snapshot;
+ $('.game').classList.toggle('party-lobby',room?.phase==='lobby');
+ if(room){$('#launcher').hidden=true;$('.game').classList.remove('is-launching');}
  $('#party-activity').hidden = !room; $('.game').classList.toggle('in-party', !!room);
- if (!room) return;
+ if (!room) { leaderFlames.stop(); leadingAvatar=undefined; return; }
  renderActivity();
  if (room.state && room.game !== partyGame) {
   partyGame = room.game; mode = room.config.mode; region = room.config.region; rounds = room.config.rounds;
@@ -321,14 +342,6 @@ function celebrateWinner(): void {
  feedback('VICTORY · TOP SCORE', 'correct', 8000);
  $('#results').classList.add('victory-result');
 }
-function standingStatus(player: Standing): string {
- if (player.timedOut) return 'Timed out';
- if (player.stopped) return 'Round ended';
- if (player.finished) return 'Finished';
- if (player.presence === 'offline') return 'Offline';
- if (player.presence === 'away') return 'Away';
- return party.snapshot?.phase === 'lobby' ? 'In lobby' : 'Playing';
-}
 function updatePartyResults(): void {
  const room=party.snapshot, board=document.querySelector('#party-result-board'), actions=document.querySelector('#party-result-actions');
  if (!room || !board || !actions) return;
@@ -342,22 +355,28 @@ function renderActivity(): void {
  const room = party.snapshot; if (!room) return;
  const markup = `<div class="activity-players">${room.players.filter(p=>p.id!==room.you).map((p,i) => {
   const guessed = !!p.lastGuessAt && room.serverTime-p.lastGuessAt < 4500;
-  return `<button type="button" class="activity-avatar ${guessed ? p.lastGuessCorrect ? 'guess-correct' : 'guess-wrong' : ''}" style="--avatar-hue:${(i*73+165)%360}" data-presence="${p.finished ? 'finished' : p.presence || 'active'}" aria-label="${escape(p.name)}: ${p.points} points${guessed ? ', just guessed' : ''}. Open standings" title="${escape(p.name)} · ${p.points} PTS">${avatarSvg(p.avatar)}<span class="avatar-points">${p.points}</span><i class="activity-dot" aria-hidden="true"></i>${guessed ? `<span class="guess-flash" aria-hidden="true">${p.lastGuessCorrect ? '✓' : '×'}</span>` : ''}${finishMedal(p.finishPlace)}${p.dunceHat ? dunceCap() : ''}</button>`;
+  return `<button type="button" data-player="${p.id}" class="activity-avatar ${guessed ? p.lastGuessCorrect ? 'guess-correct' : 'guess-wrong' : ''}" style="--avatar-hue:${(i*73+165)%360}" data-presence="${p.finished ? 'finished' : p.presence || 'active'}" aria-label="${escape(p.name)}: ${p.points} points${guessed ? ', just guessed' : ''}. Open standings" title="${escape(p.name)} · ${p.points} PTS">${avatarSvg(p.avatar)}<span class="avatar-points">${p.points}</span><i class="activity-dot" aria-hidden="true"></i>${guessed ? `<span class="guess-flash" aria-hidden="true">${p.lastGuessCorrect ? '✓' : '×'}</span>` : ''}${finishMedal(p.finishPlace)}${p.dunceHat ? dunceCap() : ''}</button>`;
  }).join('')}</div>`;
  if ($('#party-activity').innerHTML !== markup) $('#party-activity').innerHTML = markup;
+ const leader=room.phase==='playing' && room.players[0]?.points>0 && room.players[0].points>(room.players[1]?.points||0) ? room.players[0] : undefined;
+ const square=leader && leader.id!==room.you ? document.querySelector<HTMLElement>(`[data-player="${leader.id}"]`)||undefined : undefined;
+ if (square!==leadingAvatar) { leaderFlames.stop(); leadingAvatar=square; if(square)leaderFlames.play(square,1,{compact:true,smoke:false}); }
 }
 $('#party-activity').onclick = () => partyMenu();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden && !$('#results').hidden && $('#results').classList.contains('victory-result'))renderer.smolderBorders(Infinity);});
 function renderRoom(): void {
  const room = party.snapshot!;
- const pending = room.players.filter(p => !p.finished && !p.stopped).length;
- const markup = `<h2>${room.phase === 'lobby' ? 'PARTY' : room.phase === 'finished' ? 'FINAL STANDINGS' : 'LIVE STANDINGS'}</h2><p>${escape(room.config.region)} · ${MODES[room.config.mode].title} · ${room.config.rounds || 'All'} countries</p><p>${room.players.length}/8 players · ${room.phase === 'lobby' ? 'Waiting for the host' : 'Points first, then fastest finish'}</p><ol class="party-standings">${room.players.map(p => `<li><span>${finishMedal(p.finishPlace)}${p.dunceHat ? dunceCap() : ''}${escape(p.name)}${p.id === room.you ? ' (you)' : ''}${p.id === room.hostId ? ' ★' : ''}</span><strong>${p.points} PTS</strong><small>${standingStatus(p)} · ${p.completed}/${room.total || '—'} answered${p.finished ? ' · ' + formatTime(Math.floor(p.elapsedMs / 1000)) : ''}</small>${p.id !== room.you ? `<button type="button" class="vote-kick text-button" data-kick="${p.id}" ${p.votedToKick ? 'disabled' : ''}>${p.votedToKick ? 'VOTED' : 'VOTE TO REMOVE'} · ${p.kickVotes || 0}/${Math.floor((room.players.length-1)/2)+1}</button>` : ''}</li>`).join('')}</ol>${room.phase === 'playing' ? `<p class="party-summary">${room.players.length - pending}/${room.players.length} finished · Live scores</p>` : ''}<label for="invite-link">Invite link</label><input id="invite-link" readonly value="${escape(partyLink())}"><button id="copy-invite" class="secondary-button">COPY LINK</button><p id="party-status" role="status"></p>${room.you === room.hostId && room.phase !== 'playing' ? `<button id="party-start" class="primary-button" ${room.players.length < 2 ? 'disabled' : ''}>${room.phase === 'finished' ? 'REMATCH' : 'START GAME'}</button>` : ''}${room.you === room.hostId && room.phase === 'playing' ? '<button id="party-end" class="secondary-button">END ROUND</button>' : ''}<button id="party-leave" class="text-button">LEAVE ROOM</button><div id="party-tools" class="settings-tools"></div><p>Invites expire after 24 hours. Keep this tab to reconnect.</p>`;
- if (partyMarkup === markup && document.querySelector('#party-tools')) return;
+ const isHost=room.you===room.hostId;
+ const lobby=room.phase==='lobby';
+ const people=room.players.map(p=>`<li>${avatarSvg(p.avatar)}<span>${escape(p.name)}${p.id===room.you?' (you)':''}${p.id===room.hostId?' <small>HOST</small>':''}</span>${lobby?'<strong>JOINED</strong>':`<strong>${p.points} PTS</strong>${finishMedal(p.finishPlace)}${p.dunceHat?dunceCap():''}`}</li>`).join('');
+ const options=room.players.filter(p=>p.id!==room.you).map(p=>`<p>${escape(p.name)} <button type="button" class="vote-kick text-button" data-kick="${p.id}" ${p.votedToKick?'disabled':''}>${p.votedToKick?'VOTED':'VOTE TO REMOVE'} · ${p.kickVotes||0}/${Math.floor((room.players.length-1)/2)+1}</button></p>`).join('');
+ const markup=`<h2>${lobby?'YOUR PARTY':room.phase==='finished'?'FINAL SCORES':'LIVE SCORES'}</h2><p>${MODES[room.config.mode].title}${room.config.mode==='countries'&&room.config.region==='World'?'':' · '+escape(room.config.region)} · ${room.config.rounds||'All'} countries</p>${lobby?'<div class="party-countdown"><span>STARTING IN</span><strong id="party-countdown">05:00</strong><small>Starts sooner if all 8 places fill.</small></div>':''}<button id="copy-invite" class="secondary-button">COPY INVITE LINK</button><p id="party-status" role="status"></p>${isHost&&room.phase!=='playing'?`<button id="party-start" class="primary-button" ${room.players.length<2?'disabled':''}>${lobby?'START NOW':'PLAY AGAIN'}</button>`:''}<ul class="simple-party-list">${people}</ul><details class="party-options"><summary>More options</summary><label for="invite-link">Invite link</label><input id="invite-link" readonly value="${escape(partyLink())}">${options}${isHost&&room.phase==='playing'?'<button id="party-end" class="secondary-button">END ROUND</button>':''}<div id="party-tools" class="settings-tools"></div></details><button id="party-leave" class="text-button">LEAVE PARTY</button>`;
+ if (partyMarkup === markup && document.querySelector('#party-tools')) { updateLobbyClock(); return; }
  partyMarkup = markup;
  for (const control of menuControls) $('#extra-controls').append(control);
- $('#dialog-body').innerHTML = markup;
+ $('#dialog-body').innerHTML = markup; updateLobbyClock();
  for (const control of menuControls.filter(c => c.id !== 'restart')) $('#party-tools').append(control);
- $('#copy-invite').onclick = async () => { try { await navigator.clipboard.writeText(partyLink()); $('#party-status').textContent = 'Link copied'; } catch { $<HTMLInputElement>('#invite-link').select(); $('#party-status').textContent = 'Select and copy the link above'; } };
+ $('#copy-invite').onclick = async () => { try { await navigator.clipboard.writeText(partyLink()); $('#party-status').textContent = 'Link copied'; } catch { $<HTMLDetailsElement>('.party-options').open=true; $<HTMLInputElement>('#invite-link').focus(); $<HTMLInputElement>('#invite-link').select(); $('#party-status').textContent = 'Select and copy the link above'; } };
  document.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach(button => { button.onclick = async () => { button.disabled = true; partyBusy = true; try { await party.action({ type: 'vote-kick', playerId: button.dataset.kick }); syncParty(); } catch (error) { partyError(error); button.disabled=false; } finally { partyBusy=false; } }; });
  const end = document.querySelector<HTMLButtonElement>('#party-end');
  if (end) end.onclick = () => {
@@ -371,23 +390,24 @@ function renderRoom(): void {
 }
 function partyMenu(code?: string): void {
  if (party.snapshot) { openDialog(''); partyDialog = true; renderRoom(); return; }
- openDialog(`<h2>${code ? 'JOIN PARTY' : 'PARTY'}</h2><p>${code ? 'Join this private room.' : 'Create a private room for 2–8 players using your current map, mode and round length.'}</p>${partyAvailable ? '<form id="party-form"><label for="nickname">Nickname</label><input id="nickname" maxlength="24" required autocomplete="nickname"><div id="avatar-picker" class="avatar-picker"></div><button class="primary-button" type="submit">' + (code ? 'JOIN ROOM' : 'CREATE INVITE') + '</button><p id="party-status" role="status"></p></form>' : '<p>Online rooms are not available on this site yet. Please try again later.</p>'}`);
+ openDialog(`<h2>${code ? 'JOIN PARTY' : 'PLAY TOGETHER'}</h2><p>${code ? 'Pick a name and join your friends.' : 'Create a game, then send the invite to your friends.'}</p>${partyAvailable ? '<form id="party-form" class="simple-party-form"><label for="nickname">Nickname</label><input id="nickname" maxlength="24" required autocomplete="nickname"><div id="avatar-picker" class="avatar-picker"></div><button class="primary-button" type="submit">' + (code ? 'JOIN PARTY' : 'CREATE PARTY') + '</button><p id="party-status" role="status"></p></form>' : '<p>Online rooms are not available on this site yet. Please try again later.</p>'}`);
+ if (!code) { const chooser=document.createElement('div'); chooser.className='party-game-choice'; chooser.innerHTML=`<label for="party-mode">Game</label><select id="party-mode">${Object.values(MODES).map(def=>`<option value="${def.id}" ${def.id===mode?'selected':''}>${def.title}</option>`).join('')}</select>`; document.querySelector('#avatar-picker')?.before(chooser); }
  const picker = document.querySelector<HTMLElement>('#avatar-picker');
  const chosenAvatar = picker ? avatarPicker(picker) : undefined;
  const form = document.querySelector<HTMLFormElement>('#party-form');
- if (form) form.onsubmit = async event => { event.preventDefault(); const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!; button.disabled = true; try { await party.enter($<HTMLInputElement>('#nickname').value, { mode, region, rounds, seed: 0 }, code, chosenAvatar?.()); const url = new URL(location.href); url.searchParams.set('room', party.snapshot!.code); history.replaceState(null, '', url); partyMenu(); syncParty(); } catch (error) { $('#party-status').textContent = error instanceof Error ? error.message : 'Could not connect'; button.disabled = false; } };
+ if (form) form.onsubmit = async event => { event.preventDefault(); const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!; button.disabled = true; try { await party.enter($<HTMLInputElement>('#nickname').value, { mode: document.querySelector<HTMLSelectElement>('#party-mode')?.value as Mode || mode, region, rounds, seed: 0 }, code, chosenAvatar?.()); const url = new URL(location.href); url.searchParams.set('room', party.snapshot!.code); history.replaceState(null, '', url); partyMenu(); syncParty(); } catch (error) { if(party.exitReason==='canceled')handlePartyExit(error);else $('#party-status').textContent = error instanceof Error ? error.message : 'Could not connect'; button.disabled = false; } };
 }
 $('#party').onclick = () => partyMenu(new URL(location.href).searchParams.get('room') || undefined);
 $<HTMLDialogElement>('#dialog').addEventListener('close', () => { partyDialog = false; });
 async function restoreParty(): Promise<void> {
  const code = new URL(location.href).searchParams.get('room'); if (!code) return;
  if (!/^[a-f0-9]{16}$/.test(code)) { partyError(new Error('Invalid invite link.')); return; }
- if (await party.restore(code)) { partyMenu(); syncParty(); } else partyMenu(code);
+ if (await party.restore(code)) { partyMenu(); syncParty(); } else if(party.exitReason==='canceled')handlePartyExit(new Error('This party has closed.')); else partyMenu(code);
 }
 setInterval(async () => {
  if (!party.snapshot || partyBusy || partyPolling || document.hidden) return;
  partyPolling = true;
- try { await party.refresh(); syncParty(); } catch (error) { if (!party.snapshot) { partyDialog = false; closeDialog(); syncParty(); startGame(); } partyError(error); } finally { partyPolling = false; }
+ try { await party.refresh(); syncParty(); } catch (error) { if (!party.snapshot) handlePartyExit(error); else partyError(error); } finally { partyPolling = false; }
 }, 3000);
 async function boot(): Promise<void> {
  const stopFaviconLoading = startFaviconLoading();
@@ -410,7 +430,7 @@ async function boot(): Promise<void> {
   renderer.onHover = (id, x, y) => { const tip = $('#tooltip'); tip.hidden = !id || transition || mode === 'flags' || state?.status === 'finished' || !state?.answers.some(a => a.targetId === id && a.correct); if (id) { tip.textContent = state?.answers.some(a => a.targetId === id && a.correct) ? countries.find(c => c.id === id)!.name : 'Click to guess'; tip.style.left = `${Math.max(8, Math.min(x + 15, innerWidth - 135))}px`; tip.style.top = `${Math.max(125, y - 36)}px`; } };
   renderer.onContextLost = () => { $('#load-error').hidden = false; $('#load-error').innerHTML = '<h2>Map connection lost</h2><p>Reload to restore the map, or continue with keyboard answers.</p><button class="primary-button" onclick="location.reload()">Reload</button>'; };
   stopFaviconLoading();
-  $('#loading').hidden = true; startGame(); void restoreParty(); playCompassArrival($('.brand-mark')); void playFaviconArrival();
+  $('#loading').hidden = true; startGame(); if(new URL(location.href).searchParams.has('room'))void restoreParty();else launchGamePicker(); playCompassArrival($('.brand-mark')); void playFaviconArrival();
  } catch (error) {
   stopFaviconLoading();
   $('#loading').hidden = true; $('#target-name').textContent = 'Map unavailable'; $('#load-error').hidden = false;

@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import atlas from '../public/data/countries.json';
-import { act, checkConfig, checkVersion, join, snapshot, expireRound, ROUND_DURATION_MS, type Room } from './room';
+import { act, checkConfig, checkVersion, join, snapshot, expireRound, advanceLobby, lobbyDeadline, LOBBY_WAIT_MS, ROUND_DURATION_MS, type Room } from './room';
 interface Env { ROOMS: DurableObjectNamespace<PartyRoom>; ALLOWED_ORIGINS: string }
 const pool = atlas.features.map(f => ({ id: String(f.id), ...f.properties }));
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -40,13 +40,15 @@ export class PartyRoom extends DurableObject<Env> {
     const body = raw ? JSON.parse(raw) : {};
     if (action === 'create' && request.method === 'POST' && !room) {
      checkVersion(body.version);
-     room = { code: url.pathname.split('/')[1], config: checkConfig(body.config), phase: 'lobby', hostId: '', players: [], startedAt: 0, game: 0, expiresAt: now + 86400000 };
-     const player = join(room, body.name, now, body.avatar); await this.ctx.storage.put('room', room); await this.ctx.storage.setAlarm(room.expiresAt);
+     room = { code: url.pathname.split('/')[1], config: checkConfig(body.config), phase: 'lobby', hostId: '', players: [], startedAt: 0, game: 0, expiresAt: now + 86400000, lobbyDeadlineAt: now + LOBBY_WAIT_MS };
+     const player = join(room, body.name, now, body.avatar); await this.ctx.storage.put('room', room); await this.schedule(room, now);
      return json({ token: player.token, snapshot: snapshot(room, player, now) });
     }
     if (!room || room.expiresAt <= now) return json({ error: 'This invite has expired. Create a new room.' }, 404);
+    if (advanceLobby(room, pool, now)) { await this.ctx.storage.put('room',room); await this.schedule(room,now); }
+    if (room.phase==='canceled') return json({error:'The party closed because fewer than two players were present.',code:'party-canceled'},410);
     if (action === 'join' && request.method === 'POST') {
-     checkVersion(body.version); const player = join(room, body.name, now, body.avatar); await this.ctx.storage.put('room', room);
+     checkVersion(body.version); const player = join(room, body.name, now, body.avatar); advanceLobby(room,pool,now); await this.ctx.storage.put('room', room); await this.schedule(room,now);
      return json({ token: player.token, snapshot: snapshot(room, player, now) });
     }
     if (expireRound(room, now)) await this.ctx.storage.put('room', room);
@@ -55,7 +57,7 @@ export class PartyRoom extends DurableObject<Env> {
     const previousSeen = player.lastSeenAt || 0;
     player.lastSeenAt = now;
     if (action === 'action' && request.method === 'POST') { act(room, player, body, pool, now); await this.ctx.storage.put('room', room);
-     if (body.type === 'start' && room.phase === 'playing') await this.ctx.storage.setAlarm(Math.min(room.expiresAt, room.startedAt + ROUND_DURATION_MS));
+     if (['start','leave','vote-kick'].includes(body.type as string)) await this.schedule(room,now);
     }
     else if (action !== 'state' || request.method !== 'GET') return json({ error: 'Invalid request.' }, 405);
     else if (now - previousSeen >= 15000) await this.ctx.storage.put('room', room);
@@ -63,12 +65,16 @@ export class PartyRoom extends DurableObject<Env> {
    } catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid request.' }, 400); }
   });
  }
+ private async schedule(room:Room,now:number):Promise<void> {
+  const due=room.phase==='lobby'?lobbyDeadline(room):room.phase==='playing'?room.startedAt+ROUND_DURATION_MS:room.expiresAt;
+  await this.ctx.storage.setAlarm(Math.max(now+1,Math.min(room.expiresAt,due)));
+ }
  async alarm(): Promise<void> {
-  await this.ctx.blockConcurrencyWhile(async () => {
-   const room = await this.ctx.storage.get<Room>('room');
-   if (!room || room.expiresAt <= Date.now()) { await this.ctx.storage.deleteAll(); return; }
-   if (expireRound(room, Date.now())) await this.ctx.storage.put('room', room);
-   await this.ctx.storage.setAlarm(room.phase === 'playing' ? Math.min(room.expiresAt, room.startedAt + ROUND_DURATION_MS) : room.expiresAt);
+  await this.ctx.blockConcurrencyWhile(async()=>{
+   const room=await this.ctx.storage.get<Room>('room'),now=Date.now();
+   if(!room||room.expiresAt<=now){await this.ctx.storage.deleteAll();return;}
+   if(advanceLobby(room,pool,now)||expireRound(room,now))await this.ctx.storage.put('room',room);
+   await this.schedule(room,now);
   });
  }
 }

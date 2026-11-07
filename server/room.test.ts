@@ -117,3 +117,26 @@ test('last-place bonus is assigned once at finalization with an exact 30 percent
  const result=guest.dunceHat;assert.equal(typeof result,'boolean');snapshot(room,guest,5000);assert.equal(guest.dunceHat,result);
  act(room,host,{type:'start'},pool,6000);assert.equal(guest.dunceHat,undefined);
 });
+test('lobby auto-starts after five minutes, with one shared clock for all joiners',async()=>{
+ const {advanceLobby,LOBBY_WAIT_MS}=await import('./room');
+ const {room,host}=setup();room.lobbyDeadlineAt=1000+LOBBY_WAIT_MS;
+ assert.equal(advanceLobby(room,pool,room.lobbyDeadlineAt-1),false);
+ const late=join(room,'Late',room.lobbyDeadlineAt-1);assert.equal(room.lobbyDeadlineAt,1000+LOBBY_WAIT_MS);
+ assert.equal(advanceLobby(room,pool,room.lobbyDeadlineAt),true);assert.equal(room.phase,'playing');
+ assert.equal(room.startedAt,room.lobbyDeadlineAt);assert.deepEqual(late.state!.deck,host.state!.deck);
+ assert.equal(advanceLobby(room,pool,room.lobbyDeadlineAt+1),false);
+});
+test('eighth player starts immediately; a ninth cannot join',async()=>{
+ const {advanceLobby}=await import('./room');const {room}=setup();room.lobbyDeadlineAt=301000;
+ for(let i=0;i<5;i++)join(room,`Guest ${i}`,2000);
+ assert.equal(advanceLobby(room,pool,2000),false);
+ join(room,'Eighth',2001);assert.equal(advanceLobby(room,pool,2001),true);assert.equal(room.startedAt,2001);
+ assert.throws(()=>join(room,'Ninth',2002),/full|started/);
+});
+test('a solo lobby closes at the deadline, and a party closes when reduced to one before starting',async()=>{
+ const {advanceLobby}=await import('./room');const {room,host,guest}=setup();room.lobbyDeadlineAt=301000;
+ act(room,guest,{type:'leave'},pool,2000);assert.equal(room.phase,'canceled');
+ assert.throws(()=>act(room,host,{type:'start'},pool,2001),/closed/);
+ const solo={...room,phase:'lobby' as const,players:[host],lobbyDeadlineAt:301000};
+ assert.equal(advanceLobby(solo,pool,300999),false);assert.equal(advanceLobby(solo,pool,301000),true);assert.equal(solo.phase,'canceled');
+});

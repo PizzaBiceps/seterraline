@@ -85,13 +85,15 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
       const high = filter('highpass', 6500); high.connect(envelope); hiss(high, .7); break;
     }
     case 'hard-lead': {
-      const bite=filter('lowpass',2400,1.6),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
-      // A narrow raw-saw stack and parallel hard-clipped grit, rather than a wide trance pad.
-      for(let i=0;i<1024;i++)curve[i]=Math.max(-.72,Math.min(.72,(i/511.5-1)*4.5));
-      grit.curve=curve;grit.oversample='2x';nodes.push(grit);grit.connect(bite);bite.connect(envelope);
-      bite.frequency.setValueAtTime(1800,start);bite.frequency.exponentialRampToValueAtTime(4700,start+Math.min(.1,length*.6));
-      const raw=oscillator('sawtooth',frequency*.985,bite,.32);raw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
-      oscillator('sawtooth',frequency,grit,.4,-5);oscillator('sawtooth',frequency,grit,.36,5);break;
+      // Bright, narrow raw saw: retain upper harmonics instead of sweeping a low-pass wah.
+      const high=filter('highpass',Math.max(280,frequency*.7),.7),tone=filter('lowpass',8800,.7);
+      const grit=ctx.createWaveShaper(),dry=ctx.createGain(),wet=ctx.createGain(),curve=new Float32Array(1024);
+      for(let i=0;i<1024;i++)curve[i]=Math.atan((i/511.5-1)*3)/Math.atan(3)*.8;
+      grit.curve=curve;grit.oversample='2x';dry.gain.value=.45;wet.gain.value=.6;nodes.push(grit,dry,wet);
+      high.connect(dry);dry.connect(tone);high.connect(grit);grit.connect(wet);wet.connect(tone);tone.connect(envelope);
+      oscillator('sawtooth',frequency,high,.85);oscillator('sawtooth',frequency,high,.15,3);
+      envelope.gain.cancelScheduledValues(start);envelope.gain.setValueAtTime(0,start);envelope.gain.linearRampToValueAtTime(note.velocity,start+.004);
+      envelope.gain.exponentialRampToValueAtTime(Math.max(.001,note.velocity*.7),start+Math.max(.015,length));envelope.gain.linearRampToValueAtTime(0,end);break;
     }
     case 'buzz': {
       const resonance=filter('lowpass',3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);

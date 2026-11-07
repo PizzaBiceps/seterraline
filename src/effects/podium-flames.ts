@@ -1,12 +1,12 @@
 type Ember = { x:number;y:number;vx:number;vy:number;age:number;life:number;height:number;width:number;seed:number;smoke:boolean };
 /** Low-resolution randomized flames and smoke anchored outside the results dialog. */
 export class PodiumFlames {
- private canvas=document.createElement('canvas');private ctx:CanvasRenderingContext2D|null;private frame=0;private target?:HTMLElement;private place=1;
- constructor(parent:HTMLElement,private onActive:(active:boolean)=>void=()=>{}){this.canvas.className='podium-fire';this.canvas.setAttribute('aria-hidden','true');parent.append(this.canvas);this.ctx=this.canvas.getContext('2d');document.addEventListener('visibilitychange',()=>{if(document.hidden){const target=this.target,place=this.place;this.stop();this.target=target;this.place=place;}else if(this.target&&!this.target.hidden)this.play(this.target,this.place);});}
+ private canvas=document.createElement('canvas');private ctx:CanvasRenderingContext2D|null;private frame=0;private target?:HTMLElement;private place=1;private options:{compact?:boolean;smoke?:boolean}={};
+ constructor(parent:HTMLElement,private onActive:(active:boolean)=>void=()=>{}){this.canvas.className='podium-fire';this.canvas.setAttribute('aria-hidden','true');parent.append(this.canvas);this.ctx=this.canvas.getContext('2d');document.addEventListener('visibilitychange',()=>{if(document.hidden){const target=this.target,place=this.place;this.stop();this.target=target;this.place=place;}else if(this.target&&!this.target.hidden)this.play(this.target,this.place,this.options);});}
  stop():void{this.onActive(false);this.target=undefined;cancelAnimationFrame(this.frame);this.frame=0;this.ctx?.clearRect(0,0,this.canvas.width,this.canvas.height);}
- play(target:HTMLElement,place:number):void{
+ play(target:HTMLElement,place:number,options:{compact?:boolean;smoke?:boolean}={}):void{
   this.stop();if(!this.ctx||document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  this.target=target;this.place=place;this.onActive(true);
+  this.target=target;this.place=place;this.options=options;this.onActive(true);
   const silver=place===2,palette=silver?['#4b709c','#8bd1f1','#edfaff']:['#bd472b','#ff9e39','#ffe9a2'];
   this.canvas.width=Math.ceil(innerWidth/2);this.canvas.height=Math.ceil(innerHeight/2);
   const particles:Ember[]=[];let previous=performance.now();
@@ -15,11 +15,11 @@ export class PodiumFlames {
    const ctx=this.ctx!;ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
    if(document.hidden||!target.isConnected||target.hidden){this.stop();return;}
    const r=target.getBoundingClientRect(),left=Math.round(r.left/2),right=Math.round(r.right/2),top=Math.round(r.top/2),bottom=Math.round(r.bottom/2);
-   for(let i=0;i<(silver?6:18);i++){
-    const e=Math.random(),side=e<.38?0:e<.64?1:e<.9?2:3,smoke=i%5===0;
+   for(let i=0;i<(options.compact?3:silver?6:18);i++){
+    const e=Math.random(),side=e<.38?0:e<.64?1:e<.9?2:3,smoke=options.smoke!==false&&i%5===0;
     const x=side===0||side===3?left+Math.random()*(right-left):side===1?left-2:right+2;
     const y=side===0?top-1:side===3?bottom+3:top+Math.random()*(bottom-top);
-    particles.push({x,y,vx:(side===1?-1:side===2?1:Math.random()-.5)*(smoke?4:2),vy:smoke?-12-Math.random()*12:-4-Math.random()*8,age:0,life:smoke?1+Math.random():.3+Math.random()*.65,height:(silver?4:6)+Math.random()**2*(silver?7:23),width:(silver?1.5:3)+Math.random()*(silver?1.5:2.5),seed:Math.random()*9,smoke});
+    particles.push({x,y,vx:(side===1?-1:side===2?1:Math.random()-.5)*(smoke?4:2),vy:smoke?-12-Math.random()*12:-4-Math.random()*8,age:0,life:smoke?1+Math.random():.3+Math.random()*.65,height:options.compact?2+Math.random()*6:(silver?4:6)+Math.random()**2*(silver?7:23),width:options.compact?1+Math.random():(silver?1.5:3)+Math.random()*(silver?1.5:2.5),seed:Math.random()*9,smoke});
    }
    for(let i=particles.length-1;i>=0;i--){
     const f=particles[i];f.age+=dt;if(f.age>=f.life){particles.splice(i,1);continue;}f.x+=f.vx*dt;f.y+=f.vy*dt;

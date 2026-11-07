@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. Use the menu next to the game name to choose a map tile (World, Europe, Africa, Asia, Americas, or Oceania), quiz mode, and round length. Americas includes North and South America and the Caribbean. Each map limits questions to its countries, starts with the camera focused on that region, and keeps separate personal bests.
+Open the local URL printed by Vite. The launch screen offers World (the gold-bordered default), Flags, and Flag → Country. World opens the area choices: World, Europe, Africa, Asia, Americas, or Oceania. Choose a round length before starting. Create Party and Join Party are available directly on the launch screen; joining accepts an invite link or a room code. The in-game menu also provides setup and controls. Americas includes North and South America and the Caribbean. Each map limits questions to its countries, starts with the camera focused on that region, and keeps separate personal bests.
 
 ```sh
 npm test          # Rules, data integrity, and geographic triangulation
@@ -40,7 +40,7 @@ Use the alias and GitHub noreply email for commit authorship. Keep the GitHub pr
 - Phone layouts support portrait and landscape, safe-area insets, 44px controls and scrollable setup/results.
 - Focus the map to use arrow keys, + / −, and 0 (world view).
 - Small countries have bright diamond markers with a dark outline, growing slightly with zoom so they remain visible against land and sea. Small and narrow countries get a 12 CSS-pixel mouse tolerance and a 20 CSS-pixel touch tolerance based on their shortest screen-space dimension. Tapping an ambiguous area zooms into the tapped location without submitting an answer or showing country names. Tap again to select the country; selection never favors the quiz target. At maximum zoom, exact geometry takes priority so repeated zooms cannot trap the player. Keyboard answering is available in the menu.
-- **Flag → Map:** identify the flag by clicking its country on the full-screen atlas. Hints highlight the country; the keyboard answer menu keeps its name hidden until you choose.
+- **Flag → Country:** identify the flag by clicking its country on the full-screen atlas. Hints highlight the country; the keyboard answer menu keeps its name hidden until you choose.
 - Both flag modes use the locally bundled 16×12 pixel SVG set by Tony Gines (tgines/pixel-flags, MIT; license in public/licenses/pixel-flags-MIT.txt). Original detailed SVGs remain available as a fallback. No runtime rasterization or remote flag requests are needed.
 - Flag choices support number keys 1–4.
 - The menu contains map, mode, and round length. Pixel rendering and borders use fixed defaults.
@@ -68,7 +68,7 @@ Use the alias and GitHub noreply email for commit authorship. Keep the GitHub pr
 
 ## Private invite rooms (Cloudflare)
 
-Choose your map, mode and round length in Setup, then press **PARTY** to create an invite. Share the link, wait for 2–8 players, and let the host start. All three game modes and all regions are supported. Everyone receives the same deck and plays independently. Standings sort by points, finished players first on equal points, then faster completion (or progress while still playing). Open PARTY during a match to see standings; the host can start a rematch once the round ends. Finishing a run leaves everyone else playing, with scores shown directly on the results screen. A server-enforced ten-minute deadline ends unfinished runs while preserving earned points; the host can also end a round explicitly. Leave a room to return to solo play. Party runs do not write personal records.
+Use **Create Party** on the launch screen, or **PARTY** while playing. Choose a nickname and game mode, then copy the invite link. **Join Party** accepts either a full invite link or a room code. The launcher’s selected round length is used for new parties. Share the link and invite 2–8 players. A five-minute join countdown starts with the creator; the server starts automatically at eight players or when the countdown ends. The host can also start early. A party closes if the countdown ends with fewer than two players, or leaving/vote removal reduces it to one before the start. All three game modes and all regions are supported. Everyone receives the same deck and plays independently. Standings sort by points, finished players first on equal points, then faster completion (or progress while still playing). Open PARTY during a match to see standings; the host can start a rematch once the round ends. Finishing a run leaves everyone else playing, with scores shown directly on the results screen. A server-enforced ten-minute deadline ends unfinished runs while preserving earned points; the host can also end a round explicitly. Leave a room to return to solo play. Party runs do not write personal records.
 
 Players receive randomized 9×9 mirrored pixel avatars and can optionally edit them with a fixed palette; image uploads are not accepted. A vertical avatar rail shows opponents, scores, activity dots and brief guess flashes. Server-side nickname checks reject common profanity and common obfuscations; these checks and symmetric avatars reduce misuse but are not comprehensive content moderation. Vote removal requires a distinct majority of the other room members.
 
