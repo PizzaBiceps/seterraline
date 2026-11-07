@@ -13,7 +13,7 @@ export class FireCrackle {
   const seconds=.012+Math.random()*.035,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*seconds),ctx.sampleRate),samples=buffer.getChannelData(0);
   for(let i=0;i<samples.length;i++)samples[i]=(Math.random()*2-1)*(1-i/samples.length);
   const source=ctx.createBufferSource(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=1300+Math.random()*1800;filter.Q.value=.65;
-  gain.gain.setValueAtTime(.002+Math.random()*.004,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,ctx.currentTime+seconds);
+  gain.gain.setValueAtTime(.004+Math.random()*.008,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,ctx.currentTime+seconds);
   source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);this.voices.add(source);
   source.onended=()=>{this.voices.delete(source);source.disconnect();filter.disconnect();gain.disconnect();};source.start();source.stop(ctx.currentTime+seconds);
  }

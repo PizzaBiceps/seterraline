@@ -86,13 +86,13 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
     }
     case 'hard-lead':
     case 'buzz': {
-      const melody=note.instrument==='hard-lead';
-      const resonance=filter('lowpass',melody?4300:3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
+      const melody=note.instrument==='hard-lead',toneFrequency=melody?frequency/4:frequency;
+      const resonance=filter('lowpass',melody?2700:3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
       for(let i=0;i<1024;i++){const x=i/511.5-1;curve[i]=Math.max(-.68,Math.min(.68,x*3.5));}
       grit.curve=curve;grit.oversample='2x';nodes.push(grit);grit.connect(resonance);resonance.connect(envelope);
-      resonance.frequency.setValueAtTime(melody?4300:3200,start);resonance.frequency.exponentialRampToValueAtTime(melody?1200:650,start+Math.max(.04,length));
-      const saw=oscillator('sawtooth',frequency*.97,grit,.65);saw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
-      oscillator('sawtooth',frequency,grit,.35,melody?4:7);oscillator('square',frequency/2,grit,.14);
+      resonance.frequency.setValueAtTime(melody?2700:3200,start);resonance.frequency.exponentialRampToValueAtTime(melody?520:650,start+Math.max(.04,length));
+      const saw=oscillator('sawtooth',toneFrequency*.97,grit,.65);saw.frequency.exponentialRampToValueAtTime(toneFrequency,start+.018);
+      oscillator('sawtooth',toneFrequency,grit,.35,melody?4:7);oscillator('sawtooth',toneFrequency/2,grit,melody?.22:.14);
       if(melody){
         envelope.gain.cancelScheduledValues(start);envelope.gain.setValueAtTime(0,start);envelope.gain.linearRampToValueAtTime(note.velocity,start+.004);
         envelope.gain.exponentialRampToValueAtTime(Math.max(.001,note.velocity*.55),start+Math.max(.015,length));envelope.gain.linearRampToValueAtTime(0,end);
