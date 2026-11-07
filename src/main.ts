@@ -210,7 +210,7 @@ function animatePodium(place = 1): void {
  const frames:Keyframe[]=[{transform:pose(0,44,.9),offset:0,easing:'cubic-bezier(.15,.8,.3,1)'},{transform:pose(0,0,1.025),offset:.18,easing:'ease-in-out'}];
  const offsets=[.29,.49,.65,.77,.86,.92,.965,1],amplitudes=[-1,.8,-.5,.28,-.13,.055,-.02,0];
  offsets.forEach((offset,i)=>frames.push({transform:pose(width*amplitudes[i],0,1),offset,easing:'ease-in-out'}));
- resultEntrance=panel.animate(frames,{duration:1350,easing:'linear'});
+ resultEntrance=panel.animate(frames,{duration:700,easing:'linear'});
 }
 function finish(): void {
  streakHeat.set(0);

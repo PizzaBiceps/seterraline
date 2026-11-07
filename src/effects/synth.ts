@@ -84,20 +84,22 @@ export function synthesizeNote(ctx: BaseAudioContext, mix: MusicMix, noise: Audi
     case 'open-hat': {
       const high = filter('highpass', 6500); high.connect(envelope); hiss(high, .7); break;
     }
-    case 'hard-lead':
+    case 'hard-lead': {
+      const bite=filter('lowpass',2400,1.6),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
+      // A narrow raw-saw stack and parallel hard-clipped grit, rather than a wide trance pad.
+      for(let i=0;i<1024;i++)curve[i]=Math.max(-.72,Math.min(.72,(i/511.5-1)*4.5));
+      grit.curve=curve;grit.oversample='2x';nodes.push(grit);grit.connect(bite);bite.connect(envelope);
+      bite.frequency.setValueAtTime(1800,start);bite.frequency.exponentialRampToValueAtTime(4700,start+Math.min(.1,length*.6));
+      const raw=oscillator('sawtooth',frequency*.985,bite,.32);raw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
+      oscillator('sawtooth',frequency,grit,.4,-5);oscillator('sawtooth',frequency,grit,.36,5);break;
+    }
     case 'buzz': {
-      const melody=note.instrument==='hard-lead',toneFrequency=melody?frequency/4:frequency;
-      const resonance=filter('lowpass',melody?2700:3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
+      const resonance=filter('lowpass',3400,2.4),grit=ctx.createWaveShaper(),curve=new Float32Array(1024);
       for(let i=0;i<1024;i++){const x=i/511.5-1;curve[i]=Math.max(-.68,Math.min(.68,x*3.5));}
       grit.curve=curve;grit.oversample='2x';nodes.push(grit);grit.connect(resonance);resonance.connect(envelope);
-      resonance.frequency.setValueAtTime(melody?2700:3200,start);resonance.frequency.exponentialRampToValueAtTime(melody?520:650,start+Math.max(.04,length));
-      const saw=oscillator('sawtooth',toneFrequency*.97,grit,.65);saw.frequency.exponentialRampToValueAtTime(toneFrequency,start+.018);
-      oscillator('sawtooth',toneFrequency,grit,.35,melody?4:7);oscillator('sawtooth',toneFrequency/2,grit,melody?.22:.14);
-      if(melody){
-        envelope.gain.cancelScheduledValues(start);envelope.gain.setValueAtTime(0,start);envelope.gain.linearRampToValueAtTime(note.velocity,start+.004);
-        envelope.gain.exponentialRampToValueAtTime(Math.max(.001,note.velocity*.55),start+Math.max(.015,length));envelope.gain.linearRampToValueAtTime(0,end);
-      }
-      break;
+      resonance.frequency.setValueAtTime(3200,start);resonance.frequency.exponentialRampToValueAtTime(650,start+Math.max(.04,length));
+      const saw=oscillator('sawtooth',frequency*.97,grit,.65);saw.frequency.exponentialRampToValueAtTime(frequency,start+.025);
+      oscillator('sawtooth',frequency,grit,.35,7);oscillator('square',frequency/2,grit,.14);break;
     }
     case 'hard-bass': {
       const drive=ctx.createWaveShaper(),low=filter('lowpass',1600,1.2),curve=new Float32Array(512);
